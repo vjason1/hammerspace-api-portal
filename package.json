@@ -1,0 +1,13 @@
+{
+  "name": "hammerspace-api-portal",
+  "version": "1.0.0",
+  "description": "Self-hosted multi-cluster web console for the full Hammerspace management API",
+  "private": true,
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

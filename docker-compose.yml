@@ -1,0 +1,31 @@
+services:
+  hs-portal:
+    build: .
+    image: hs-api-portal:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      # Portal users, the cluster registry (credentials encrypted), the encryption key and the audit log
+      - hs-portal-data:/data
+    environment:
+      # Pre-fills the URL field when adding a cluster
+      HS_URL: "https://your-anvil.example.com:8443"
+      # Optional comma-separated allowlist of cluster hostnames that may be registered
+      HS_ALLOWED_HOSTS: ""
+      SESSION_TTL_MIN: "480"
+      # Optional: create the first portal admin automatically instead of the first-run screen
+      # PORTAL_ADMIN_USER: "admin"
+      # PORTAL_ADMIN_PASSWORD: "change-me-please"
+      # Optional: supply the credential-encryption key yourself (otherwise generated into /data/secret.key)
+      # PORTAL_SECRET_KEY: "a long random string"
+      # Upload of extraction bundles to Hammerspace (mirrors the support script's curl)
+      UPLOAD_ENABLED: "true"
+      UPLOAD_URL: "https://v1proto.sc.hammerspace.com/upload/"
+      UPLOAD_INSECURE_TLS: "true"      # same as curl --insecure
+      UPLOAD_PAYLOAD: "prosvcs"        # payload and payload_type form fields
+      UPLOAD_WORK_DIR: "/tmp/hs-portal-uploads"
+      UPLOAD_KEEP_BUNDLES: "false"
+    restart: unless-stopped
+
+volumes:
+  hs-portal-data:

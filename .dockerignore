@@ -1,0 +1,8 @@
+.git
+.gitignore
+data
+docs
+node_modules
+*.tar.gz
+.env
+README.md
