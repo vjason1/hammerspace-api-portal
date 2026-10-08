@@ -48,7 +48,7 @@ A self-hosted web console for the Hammerspace management API, covering **every**
 ### Docker Compose (recommended)
 
 ```bash
-git clone https://github.com/vjason1/hammerspace-api-portal.git
+git clone https://github.com/<you>/hammerspace-api-portal.git
 cd hammerspace-api-portal
 docker compose up -d --build
 ```
@@ -129,6 +129,7 @@ The mapping is in [`public/nav.js`](public/nav.js) (see [Customising](#customisi
 - Pick an operation from the list, or search for it (press `/`; type `hidden` or `gui` to narrow the results). Fill in the form and press the button (`Ctrl/⌘ + Enter` also works).
 - **On edit screens**, choosing the item loads its current settings. Anything you don't change is sent back unchanged.
 - **Delete operations and risky ones** (shutdown, decommission, restore, `force`, …) ask for confirmation.
+- **API command panel:** above the submit button, the full request is shown as you fill in the form, wrapped over as many lines as it needs: method, complete URL with the cluster address and query string, headers, and the pretty-printed body. You can switch between **curl** and raw **HTTP** and copy either. Passwords and keys are masked unless you tick *Show secrets*. The session cookie is a placeholder, because the portal signs in for you.
 - Other tools: **Copy as curl**, a history of recent requests, and per-operation memory of the last inputs (never passwords).
 
 ### Object IDs (name ↔ UUID)

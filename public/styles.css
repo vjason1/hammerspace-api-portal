@@ -510,3 +510,11 @@ code.uuid b { font-family: var(--sans); font-weight: 600; margin-right: 2px; }
 @media (max-width: 900px) { .idp-list li { grid-template-columns: 1fr; gap: 0; } .idp-btn { padding: 6px 8px; } }
 .gt code.uuid { white-space: nowrap; }
 .idp-hit { display: inline-flex; gap: 6px; align-items: center; margin-right: 10px; }
+
+/* full API command */
+.cmd-card > h3 { flex-wrap: wrap; }
+.cmd-note { font: 400 12px var(--sans); }
+.cmd-sec { font: 400 12.5px var(--sans); gap: 4px; }
+pre.cmd { margin: 0; padding: 12px 14px; background: var(--code-bg); color: var(--code-ink); font: 12.5px/1.55 var(--mono);
+  white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-all; max-height: none; tab-size: 2; }
+.send-bar .url-preview { white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-all; line-height: 1.4; }

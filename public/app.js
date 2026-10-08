@@ -363,6 +363,11 @@ function renderOp(o) {
       ${card('Sign-in details', formP.map(p => paramRow(o, p)).join(''))}
       ${bodyCard}
       ${pagingP.length ? `<details class="card f-paging"><summary>Filter, sort &amp; page results <span class="f-dim">optional</span></summary><div class="body f-form">${pagingP.map(p => paramRow(o, p)).join('')}</div></details>` : ''}
+      <div class="card cmd-card"><h3>API command<span class="pv-dim cmd-note" id="cmdNote"></span><span class="sp"></span>
+          <div class="tabs" role="tablist"><button type="button" data-cmd="curl">curl</button><button type="button" data-cmd="http">HTTP</button></div>
+          <label class="f-check cmd-sec"><input type="checkbox" id="cmdSecrets"> Show secrets</label>
+          <button type="button" class="tbtn" id="btnCopyCmd">Copy</button></h3>
+        <pre class="cmd" id="cmdPreview"></pre></div>
       <div class="send-bar">
         <button type="submit" class="btn primary" id="btnSend">${verb}</button>
         ${CLUSTERS.length > 1 ? `<button type="button" class="btn small" id="btnTargets" aria-expanded="false" title="Choose which clusters to run this on">Run on: <b id="tgtLabel"></b> ▾</button>` : ''}
@@ -388,7 +393,13 @@ function renderOp(o) {
     $('#btnTargets').addEventListener('click', () => { const h = $('#tgtHost'); h.hidden = !h.hidden; $('#btnTargets').setAttribute('aria-expanded', String(!h.hidden)); });
     updateTargets();
   }
-  $('#btnCurl').addEventListener('click', () => copyCurl(o, consumes));
+  $('#btnCurl').addEventListener('click', () => copyCurl(o));
+  form.querySelectorAll('[data-cmd]').forEach(b => b.addEventListener('click', () => { CMD_STYLE = b.dataset.cmd; store.set('hs.cmdStyle', CMD_STYLE); updatePreview(); }));
+  $('#cmdSecrets').addEventListener('change', updatePreview);
+  $('#btnCopyCmd').addEventListener('click', () => {
+    navigator.clipboard?.writeText($('#cmdPreview').textContent);
+    $('#btnCopyCmd').textContent = 'Copied'; setTimeout(() => { const b = $('#btnCopyCmd'); if (b) b.textContent = 'Copy'; }, 1500);
+  });
 
   const saved = store.get(`hs.form.${o.id}`, null);
   if (saved) form.querySelectorAll('[data-p]').forEach(el => { if (saved.p?.[el.dataset.p] != null && el.type !== 'password') el.value = saved.p[el.dataset.p]; });
@@ -403,7 +414,7 @@ function renderOp(o) {
     BODYMODE = store.get('hs.bodyMode', 'form');
     setBodyMode(BODYMODE, true);
     form.querySelectorAll('[data-bm]').forEach(b => b.addEventListener('click', () => setBodyMode(b.dataset.bm)));
-    $('#btnClear').addEventListener('click', () => { FORM.set(undefined); $('#bodyText').value = ''; });
+    $('#btnClear').addEventListener('click', () => { FORM.set(undefined); $('#bodyText').value = ''; updatePreview(); });
     if (canLoad) {
       let lastKey = null;
       $('#btnLoadCurrent').addEventListener('click', () => { lastKey = collect(o).path; loadCurrent(o); });
@@ -427,6 +438,7 @@ function updateTargets() {
   if ($('#tgtLabel')) $('#tgtLabel').textContent = label;
   const verb = { get: 'Run', post: 'Submit', put: 'Save changes', delete: 'Delete', patch: 'Save changes' }[o.method];
   $('#btnSend').textContent = t.length > 1 ? `${verb} on ${t.length} clusters` : verb;
+  updatePreview();
   const multi = t.length > 1 || (t.length === 1 && t[0] !== ACTIVE);
   const note = $('#multiNote');
   if (multi && FORM && !note) $('#formHost')?.insertAdjacentHTML('beforebegin', `<p class="f-hint" id="multiNote">Running on ${t.length > 1 ? 'several clusters' : 'another cluster'}: ${
@@ -446,6 +458,7 @@ function setBodyMode(mode, initial) {
   BODYMODE = mode; store.set('hs.bodyMode', mode);
   document.querySelectorAll('[data-bm]').forEach(b => b.setAttribute('aria-selected', b.dataset.bm === mode));
   $('#formHost').hidden = mode !== 'form'; $('#jsonHost').hidden = mode !== 'json';
+  updatePreview();
 }
 
 function bodyValue() {
@@ -474,10 +487,57 @@ function collect(o, overrides) {
   return { vals, path, query: q ? `?${q}` : '', formFields, missing };
 }
 
+// ---------------------------------------------------------------- the full API command (curl or raw HTTP), shown live
+const SECRET_KEY = /pass(word|phrase)?|secret|private.?key|token|credential/i;
+function maskSecrets(v) {
+  if (Array.isArray(v)) return v.map(maskSecrets);
+  if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, SECRET_KEY.test(k) && x != null && typeof x !== 'object' && x !== '' ? '••••••' : maskSecrets(x)]));
+  return v;
+}
+function buildCommand(o, { style = 'curl', secrets = false, pretty = true } = {}) {
+  const c = collect(o);
+  const method = o.method.toUpperCase();
+  const cl = activeCluster();
+  const base = (cl?.url || 'https://<cluster>:8443').replace(/\/$/, '');
+  const url = `${base}${CONFIG.basePath}${c.path}${c.query}`;
+  const consumes = (o.op.consumes || ['application/json'])[0];
+  let ctype = null, data = null, file = false;
+  if (o.params.some(p => p.in === 'formData')) {
+    ctype = 'application/x-www-form-urlencoded';
+    const f = new URLSearchParams(c.formFields); if (!secrets) for (const k of [...f.keys()]) if (SECRET_KEY.test(k)) f.set(k, '••••••');
+    data = f.toString();
+  } else if (FORM || (BODYMODE === 'json' && $('#jsonHost'))) {
+    let v; try { v = bodyValue(); } catch (e) { v = undefined; data = `<invalid JSON: ${e.message}>`; }
+    if (data == null) { const shown = secrets ? v : maskSecrets(v); data = JSON.stringify(shown ?? (o.params.find(p => p.in === 'body')?.schema?.type === 'array' ? [] : {}), null, pretty ? 2 : 0); }
+    ctype = 'application/json';
+  } else if ($('#bodyText') && $('#bodyText').value.trim()) { ctype = consumes; data = $('#bodyText').value.trim(); if (!secrets && /PRIVATE KEY/.test(data)) data = '<private key hidden>'; }
+  else if ($('#fileInput')) file = $('#fileInput').files?.[0]?.name || '<path>';
+  if (style === 'http') {
+    const u = new URL(url.replace('<cluster>', 'cluster'));
+    return [`${method} ${CONFIG.basePath}${c.path}${c.query} HTTP/1.1`, `Host: ${cl ? u.host : '<cluster>:8443'}`, 'Accept: application/json', 'Cookie: JSESSIONID=<session>',
+      ...(ctype ? [`Content-Type: ${ctype}`] : file ? ['Content-Type: multipart/form-data; boundary=…'] : []), '', ...(data != null ? [data] : file ? [`(file: ${file})`] : [])].join('\n');
+  }
+  const q = s => `'${String(s).replace(/'/g, `'\\''`)}'`;
+  const parts = [`curl -k -X ${method} ${q(url)}`, `-H 'Accept: application/json'`, `-b 'JSESSIONID=<session>'`];
+  if (ctype) parts.push(`-H ${q('Content-Type: ' + ctype)}`);
+  if (data != null) parts.push(`--data ${q(data)}`);
+  if (file) parts.push(`-F ${q(`${$('#fileField')?.value || 'file'}=@${file}`)}`);
+  return parts.join(' \\\n  ');
+}
+let CMD_STYLE = store.get('hs.cmdStyle', 'curl'), previewTimer = 0;
 function updatePreview() {
-  if (!CURRENT) return;
-  const c = collect(CURRENT);
-  $('#urlPreview').textContent = `${CURRENT.method.toUpperCase()} ${CONFIG.basePath}${c.path}${c.query}`;
+  if (!CURRENT || !$('#cmdPreview')) return;
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(() => {
+    const o = CURRENT, c = collect(o);
+    $('#urlPreview').textContent = `${o.method.toUpperCase()} ${(activeCluster()?.url || '').replace(/\/$/, '')}${CONFIG.basePath}${c.path}${c.query}`;
+    $('#cmdPreview').textContent = buildCommand(o, { style: CMD_STYLE, secrets: $('#cmdSecrets')?.checked });
+    document.querySelectorAll('[data-cmd]').forEach(b => b.setAttribute('aria-selected', b.dataset.cmd === CMD_STYLE));
+    const t = typeof targets === 'function' ? targets() : [];
+    const missing = (o.path.match(/\{[^}]+\}/g) || []).filter(x => c.path.includes(x));
+    $('#cmdNote').textContent = [missing.length ? `fill in ${missing.join(', ')}` : '', t.length > 1 ? `shown for ${clusterLabel(activeCluster())}; runs on ${t.length} clusters` : '',
+      'the portal signs in for you — JSESSIONID is a placeholder'].filter(Boolean).join(' · ');
+  }, 60);
 }
 
 async function loadCurrent(o) {
@@ -493,6 +553,7 @@ async function loadCurrent(o) {
     FORM.set(obj);
     if (BODYMODE === 'json') $('#bodyText').value = JSON.stringify(obj, null, 2);
     note.textContent = 'Current values loaded — edit what you need, then save.';
+    updatePreview();
   } catch { note.textContent = 'Response was not JSON.'; }
 }
 
@@ -666,17 +727,8 @@ function showResp(r) {
   area.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function copyCurl(o, consumes) {
-  const c = collect(o);
-  const url = `${activeCluster()?.url || ''}${CONFIG.basePath}${c.path}${c.query}`;
-  const q = s => `'${String(s).replace(/'/g, `'\\''`)}'`;
-  const parts = [`curl -k -b "JSESSIONID=<session>" -X ${o.method.toUpperCase()} ${q(url)}`, `-H 'Accept: application/json'`];
-  const ta = $('#bodyText');
-  if (o.params.some(p => p.in === 'formData')) parts.push(`-H 'Content-Type: application/x-www-form-urlencoded'`, `--data ${q(c.formFields.toString().replace(/password=[^&]*/, 'password=<password>'))}`);
-  else if (FORM) { let v; try { v = bodyValue(); } catch {} parts.push(`-H 'Content-Type: application/json'`, `--data ${q(JSON.stringify(v ?? {}))}`); }
-  else if (ta && ta.value.trim()) parts.push(`-H ${q('Content-Type: ' + consumes)}`, `--data ${q(ta.value.trim())}`);
-  else if ($('#fileInput')) parts.push(`-F 'file=@<path>'`);
-  navigator.clipboard?.writeText(parts.join(' \\\n  '));
+function copyCurl(o) {
+  navigator.clipboard?.writeText(buildCommand(o, { style: 'curl', secrets: $('#cmdSecrets')?.checked }));
   $('#btnCurl').textContent = 'Copied';
   setTimeout(() => { const b = $('#btnCurl'); if (b) b.textContent = 'Copy as curl'; }, 1500);
 }
