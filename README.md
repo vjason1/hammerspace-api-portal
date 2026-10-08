@@ -48,7 +48,7 @@ A self-hosted web console for the Hammerspace management API, covering **every**
 ### Docker Compose (recommended)
 
 ```bash
-git clone https://github.com/<you>/hammerspace-api-portal.git
+git clone https://github.com/vjason1/hammerspace-api-portal.git
 cd hammerspace-api-portal
 docker compose up -d --build
 ```
