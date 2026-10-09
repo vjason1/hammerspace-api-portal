@@ -11,10 +11,10 @@ text='\n'.join(clean)
 # body starts at "Chapter 2"
 body=text[text.index('Chapter 2. Share Management'):]
 # split by command headers "N.N. cmd-name" followed by "  cmd-name [options]"
-pat=re.compile(r'^(\d+\.\d+)\. ([a-z0-9][a-z0-9-]+)\n\s+\2\b[^\n]*\n', re.M)
+pat=re.compile(r'^((?:\d+|[A-Z])\.\d+)\. ([a-z0-9][a-z0-9-]+)\n\s+\2\b[^\n]*\n', re.M)
 ms=list(pat.finditer(body))
 cmds={}; chapters={}
-chap_pat=re.compile(r'^Chapter \d+\. (.+)$', re.M)
+chap_pat=re.compile(r'^(?:Chapter \d+\.|Appendix [A-Z]:) (.+)$', re.M)
 for i,m in enumerate(ms):
     seg=body[m.end(): ms[i+1].start() if i+1<len(ms) else len(body)]
     # chapter for this command

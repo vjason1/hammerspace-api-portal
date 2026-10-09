@@ -134,7 +134,7 @@ The mapping is in [`public/nav.js`](public/nav.js) (see [Customising](#customisi
 
 ### Explanations from the Command Line Reference
 
-The portal includes help text from the *Hammerspace 5.3 Command Line Reference*: 204 CLI commands and about 1,000 option descriptions, mapped onto the API.
+The portal includes help text from the *Hammerspace 5.3 Command Line Reference* and from the CLI's own built-in help: 213 CLI commands and about 1,200 option descriptions, mapped onto the API.
 
 - **Under each form field and parameter:** the matching CLI option and its documentation (marked **CLI**). For example, `exportOptions` shows `--export-option` with the full client-spec syntax and examples, and `cronExpression` shows `--minute`, `--hour` and the other schedule options. Long entries expand with *more*.
 - **On each operation page:** a **Command-line equivalent** card with the CLI command, what it does, its example, and all of its options.

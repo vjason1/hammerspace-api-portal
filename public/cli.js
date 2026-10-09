@@ -8,7 +8,7 @@ const CLI = (() => {
   const norm = s => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
   const desc = (cmd, opt) => D.commands[cmd]?.options?.[opt] || '';
   // Long option help: put "--x a --x b" style examples on their own lines
-  const fmt = t => e(t).replace(/\s(--[a-z0-9-]+ )/g, '<br>$1').replace(/\s(Example:?|Examples:?|Format:?)\s/g, '<br><b>$1</b> ');
+  const fmt = t => e(t).replace(/\n/g, '<br>').replace(/\s(--[a-z0-9-]+ )/g, '<br>$1').replace(/\s(Example:?|Examples:?|Format:?)\s/g, '<br><b>$1</b> ');
 
   // pairs: [[cmd, opt], ...] -> HTML block under a form field
   function block(pairs, existing) {
@@ -21,7 +21,7 @@ const CLI = (() => {
       seen.add(key); items.push({ cmd, opt, d });
     }
     if (!items.length) return '';
-    const title = `<span class="cli-tag" title="From the Hammerspace ${e(D.version)} Command Line Reference">CLI</span>`;
+    const title = `<span class="cli-tag" title="From the CLI’s built-in help and the Hammerspace ${e(D.version)} Command Line Reference">CLI</span>`;
     if (items.length === 1 && items[0].d.length <= 240) {
       const it = items[0];
       return `<p class="cli-doc">${title} <code title="${e(it.cmd)}">--${e(it.opt)}</code> ${fmt(it.d)}</p>`;
@@ -43,10 +43,10 @@ const CLI = (() => {
   function opCard(opId) {
     const cmds = forOp(opId).map(c => [c, D.commands[c]]).filter(([, v]) => v);
     if (!cmds.length) return '';
-    return `<div class="card cli-card"><h3><span class="cli-tag">CLI</span> Command-line equivalent<span class="sp"></span><span class="pv-dim" style="font-weight:400;font-size:12px">Hammerspace ${e(D.version)} Command Line Reference</span></h3>
+    return `<div class="card cli-card"><h3><span class="cli-tag">CLI</span> Command-line equivalent<span class="sp"></span></h3>
       <div class="body">${cmds.map(([name, c]) => {
         const opts = Object.entries(c.options);
-        return `<div class="cli-cmd"><div class="cli-head"><code class="cli-name">${e(name)}</code> <span class="pv-dim">${e(c.chapter)}</span></div>
+        return `<div class="cli-cmd"><div class="cli-head"><code class="cli-name">${e(name)}</code> <span class="pv-dim">${e(c.chapter)}</span><span class="cli-src">Source: ${e(D.sources?.[c.source] || 'Command Line Reference')}</span></div>
           <p class="cli-sum">${e(c.summary)}</p>
           ${c.example ? `<pre class="cli-ex">${e(c.example.replace(/ (?=--)/g, ' \\\n    '))}</pre>` : ''}
           ${opts.length ? `<details class="cli-opts"><summary>${opts.length} option${opts.length === 1 ? '' : 's'}</summary><dl>${opts.map(([o, d]) => `<dt><code>--${e(o)}</code></dt><dd>${fmt(d)}</dd>`).join('')}</dl></details>` : ''}</div>`;

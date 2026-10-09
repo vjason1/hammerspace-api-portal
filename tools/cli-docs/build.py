@@ -4,8 +4,44 @@ HERE=os.path.dirname(os.path.abspath(__file__)); ROOT=os.path.abspath(os.path.jo
 sys.path.insert(0,HERE)
 from map import M, EXTRA_COMMANDS
 cli=json.load(open(os.path.join(HERE,'cli.json')))
+# Merge the CLI's own built-in help (cli_help.json from parse_help.py), which is current for the cluster it came from.
+HELP_PATH=os.path.join(HERE,'cli_help.json')
+help_=json.load(open(HELP_PATH)) if os.path.exists(HELP_PATH) else {}
+nrm=lambda t: re.sub(r'[^a-z0-9]+',' ',(t or '').lower()).strip()
+def best(a,b):
+    # a = CLI help text, b = PDF text: keep the one that says more; combine when they differ
+    if not a: return b or ''
+    if not b: return a
+    na,nb=nrm(a),nrm(b)
+    if nb in na: return a
+    import difflib
+    if difflib.SequenceMatcher(None,na,nb).ratio()>=0.8: return a      # same text, different wording/line breaks: the CLI help is current
+    if na in nb: return b                                         # the guide repeats the help text and adds more
+    return a+'\n(Reference guide: '+b+')'
+src={}
+for k in set(cli)|set(help_):
+    p_=cli.get(k); h_=help_.get(k)
+    if p_ and not h_: src[k]='guide'; continue
+    if h_ and not p_:
+        ch=EXTRA_COMMANDS.get(k,{}).get('chapter','')
+        cli[k]={'chapter':ch,'summary':h_['summary'],'options':dict(h_['options'])}; src[k]='help'
+    else:
+        popts={o:d for o,d in p_['options'].items() if o!='help'}
+        extra=set(popts)-set(h_['options'])
+        if len(extra)>5: popts={o:d for o,d in popts.items() if o in h_['options']}   # PDF text that ran into the next section
+        opts={}
+        for o in list(h_['options'])+[o for o in popts if o not in h_['options']]:
+            opts[o]=best(h_['options'].get(o), popts.get(o))
+        summ=p_['summary']
+        if nrm(h_['summary']) not in nrm(summ): summ=h_['summary']+(' '+summ[summ.find('Example'):] if 'Example' in summ else '')
+        cli[k]={'chapter':p_['chapter'],'summary':summ,'options':opts}; src[k]='both'
+    for o in h_.get('required',[]):
+        d=cli[k]['options'].get(o,'')
+        if o in cli[k]['options'] and 'Required' not in d: cli[k]['options'][o]=(d+' (Required)').strip()
+# commands with no help and no guide entry (added by hand in map.py)
 for _k,_v in EXTRA_COMMANDS.items():
-    cli.setdefault(_k, {'chapter':_v['chapter'],'summary':_v['summary']+' (in the CLI; not documented in the Command Line Reference, so options are not listed here)','options':{}})
+    if _k not in cli:
+        cli[_k]={'chapter':_v['chapter'],'summary':_v['summary']+' (in the CLI; not documented, so options are not listed here)','options':{}}; src[_k]='manual'
 S=json.load(open(os.path.join(ROOT,'public','swagger.json')))
 D=S['definitions']
 def ref(s): return s['$ref'].split('/')[-1] if s and '$ref' in s else None
@@ -165,7 +201,7 @@ for k,v in cli.items():
     summ=v['summary']; ex=''
     mm=re.search(r'\bExamples?\b:?\s+('+re.escape(k)+r'\b.*)$', summ)
     if mm: ex=mm.group(1); summ=summ[:mm.start()].strip()
-    cmds[k]={'chapter':v['chapter'],'summary':summ,'example':ex,'options':{o:d for o,d in v['options'].items() if o!='help'}}
-out={'version':'5.3','commands':cmds,'ops':ops,'fields':fields,'params':params}
+    cmds[k]={'chapter':v['chapter'],'summary':summ,'example':ex,'source':src.get(k,'guide'),'options':{o:d for o,d in v['options'].items() if o!='help'}}
+out={'version':'5.3','sources':{'guide':'Hammerspace 5.3 Command Line Reference','help':'the CLI’s built-in help','both':'the CLI’s built-in help and the 5.3 Command Line Reference','manual':'confirmed by users'},'commands':cmds,'ops':ops,'fields':fields,'params':params}
 open(os.path.join(ROOT,'public','cli-docs.js'),'w').write(
  "/* Generated from the Hammerspace 5.3 Command Line Reference (2026-10-07): CLI commands, their options, and how they map to API operations and fields.\n * Regenerate with tools/cli-docs (see its README). */\n'use strict';\nconst CLI_DOCS = "+json.dumps(out,ensure_ascii=False,separators=(',',':'))+";\n")

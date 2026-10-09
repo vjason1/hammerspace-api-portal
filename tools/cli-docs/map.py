@@ -118,5 +118,7 @@ EXTRA_COMMANDS = {
  'antivirus-list':   {'chapter': 'System', 'summary': 'List antivirus services', 'ops': ['GET /antivirus', 'GET /antivirus/'+I]},
  'antivirus-remove': {'chapter': 'System', 'summary': 'Remove an antivirus service', 'ops': ['DELETE /antivirus/'+I]},
  'antivirus-update': {'chapter': 'System', 'summary': 'Update an antivirus service', 'ops': ['PUT /antivirus/'+I]},
+ 'preview-no-upload-object-volume-add': {'chapter': 'Storage and Volumes', 'summary': 'Add a zero durability object storage volume (technology preview)', 'ops': ['POST /object-storage-volumes']},
+ # processor-add/-list/-update/-remove exist in the CLI help but have no matching endpoint in this API spec
 }
 for _k, _v in EXTRA_COMMANDS.items(): M[_k] = _v['ops']
