@@ -138,7 +138,7 @@ function renderSection(sid) {
   return renderTabPage(sid, s.tabs[0].id);
 }
 
-const isListGet = o => o.method === 'get' && !o.path.includes('{') && !o.params.some(p => p.required && p.in !== 'header');
+const isListGet = o => o.method === 'get' && !o.path.includes('{') && !o.params.some(p => p.required && p.in !== 'header' && p.fixDefault == null);
 function opTable(ops, caption) {
   if (!ops.length) return '';
   return `<div class="panel"><div class="panel-h">${esc(caption)}<span class="sp"></span><span class="panel-n">${ops.length}</span></div>
@@ -170,7 +170,7 @@ function renderTabPage(sid, tid) {
 function livePanel(o, i) {
   const create = OPS.find(x => x.method === 'post' && x.path === o.path);
   return `<div class="panel live" id="live${i}"><div class="panel-h">${esc(LIVE_TITLES[o.path] || Pretty.label(o.path.split('/').filter(Boolean).join(' ')))}
-      <span class="panel-n" id="liveN${i}"></span><span class="sp"></span>
+      <span class="panel-n" id="liveN${i}">${LIVE_QUERY[o.path] ? esc(LIVE_QUERY[o.path].note) : ''}</span><span class="sp"></span>
       ${create ? `<a class="tbtn" href="${opHref(create)}">${NAV.icon('plus', 13)} ${esc(create.op.summary && create.op.summary.length < 40 ? create.op.summary : 'Create')}</a>` : ''}
       <a class="tbtn" href="${opHref(o)}" title="Open the request form for ${esc(o.path)}">Open in console</a>
       <button type="button" class="tbtn" data-reload="${i}">Refresh</button></div>
@@ -178,16 +178,32 @@ function livePanel(o, i) {
 }
 const LIVE = [];
 const LIVE_TITLES = { '/cntl': 'Cluster', '/sites/local': 'Local site', '/ad': 'Active Directory', '/s3server': 'S3 servers', '/snmp': 'SNMP', '/sw-update': 'Software update history', '/pd-support': 'Support bundles' };
+// Query values the cluster needs even though the spec marks them optional (it fails with HTTP 500 without them)
+const LIVE_QUERY = {
+  '/reports/mobility/replications': { q: 'precedingDurationMillis=86400000&intervals=24', note: 'last 24 hours, hourly' },
+  '/reports/mobility': { q: 'precedingDurationMillis=86400000', note: 'last 24 hours' },
+  '/reports/mobility/summary': { q: 'precedingDurationMillis=86400000', note: 'last 24 hours' },
+};
+// Turn a cluster error body into a short readable message (full text behind "Details")
+function clusterError(status, text) {
+  let j; try { j = JSON.parse(text); } catch {}
+  const e = Array.isArray(j) ? j[0] : j?.errors?.[0] || j;
+  const msg = e?.message && e.message !== 'INTERNAL_SERVER_ERROR' ? e.message : (e?.args || []).join(', ') || e?.message || text.slice(0, 200);
+  const cause = (e?.stack || '').split('\n')[0].replace(/^[\w.$]+Exception:\s*/, '');
+  return `<div class="err-box"><b>The cluster returned HTTP ${status}</b>${msg ? `: ${esc(msg)}` : ''}${cause ? `<div class="pv-dim">${esc(cause)}</div>` : ''}
+    <details><summary>Details</summary><pre class="code">${esc(text)}</pre></details></div>`;
+}
 async function loadLive(o, i) {
   LIVE[i] = o;
   const host = $(`#liveB${i}`); if (!host) return;
   try {
-    const r = await fetch(HS(o.path), { headers: { Accept: 'application/json' } });
+    const lq = LIVE_QUERY[o.path];
+    const r = await fetch(HS(o.path + (lq ? `?${lq.q}` : '')), { headers: { Accept: 'application/json' } });
     if (r.status === 404) { host.innerHTML = '<p class="pv-dim">Not available on this cluster’s software version.</p>'; return; }
     const text = await r.text();
-    if (!r.ok) { host.innerHTML = `<p class="err-inline">HTTP ${r.status}: ${esc(text.slice(0, 300))}</p>`; return; }
+    if (!r.ok) { host.innerHTML = clusterError(r.status, text); return; }
     let data; try { data = JSON.parse(text); } catch { data = text; }
-    if ($(`#liveN${i}`) && Array.isArray(data)) $(`#liveN${i}`).textContent = data.length;
+    if ($(`#liveN${i}`) && Array.isArray(data) && !LIVE_QUERY[o.path]) $(`#liveN${i}`).textContent = data.length;
     host.innerHTML = ''; host.appendChild(Array.isArray(data) && !data.length ? Object.assign(document.createElement('p'), { className: 'gt-empty', textContent: 'There are no items to display' }) : Pretty.render(data));
   } catch (e) { host.innerHTML = `<p class="err-inline">${esc(e.message)}</p>`; }
 }

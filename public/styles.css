@@ -551,3 +551,7 @@ pre.cli-ex { margin: 0 0 6px; background: var(--code-bg); color: var(--code-ink)
 /* grouped with a GUI section but not shown in the GUI */
 .op.op-ng .p::before { content: "not in GUI · "; color: #8a6d2f; font-family: var(--sans); }
 .ng-chip { font-size: 11px; color: #7a5a17; background: #fbf4e6; border: 1px solid #ecd9ad; border-radius: 2px; padding: 0 5px; white-space: nowrap; }
+
+.err-box { margin: 10px 12px; padding: 9px 12px; background: var(--danger-bg); border: 1px solid #f1c4c0; border-left: 4px solid var(--delete); font-size: 13px; }
+.err-box details { margin-top: 6px; } .err-box summary { cursor: pointer; color: var(--link); font-size: 12.5px; }
+.err-box pre.code { margin-top: 6px; max-height: 260px; }

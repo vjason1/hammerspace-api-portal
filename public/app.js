@@ -53,6 +53,19 @@ function setActive(id, quiet) {
   else if (CONFIG.user) showApp(); else showLogin();
 })();
 
+// Parameters the spec marks optional but the cluster needs (it answers HTTP 500 without them): mark required, pre-fill a default
+const PARAM_FIXES = {
+  'get:/reports/mobility/replications': {
+    intervals: { required: true, default: 24, note: 'Required by the cluster even though the API spec marks it optional (without it the cluster returns HTTP 500).' },
+    precedingDurationMillis: { default: 86400000, note: '86400000 = the last 24 hours. Or set Start/End millis instead.' },
+  },
+};
+function fixParams(id, params) {
+  const fx = PARAM_FIXES[id]; if (!fx) return params;
+  return params.map(p => fx[p.name] ? { ...p, required: fx[p.name].required ?? p.required, fixDefault: fx[p.name].default,
+    description: [p.description, fx[p.name].note].filter(Boolean).join('\n') } : p);
+}
+
 function buildOps() {
   OPS = [];
   for (const [path, item] of Object.entries(SPEC.paths)) {
@@ -63,7 +76,7 @@ function buildOps() {
         id: `${method}:${path}`, method, path, op,
         tag: (op.tags && op.tags[0]) || 'other',
         nav: NAV.classify(method, path),
-        params: [...(item.parameters || []), ...(op.parameters || [])],
+        params: fixParams(`${method}:${path}`, [...(item.parameters || []), ...(op.parameters || [])]),
         search: `${method} ${path} ${CLI.searchText(`${method}:${path}`)} ${NAV.classify(method, path).section === 'hidden' ? 'hidden cli' : NAV.classify(method, path).notInGui ? 'notingui' : 'gui'} ${op.summary || ''} ${op.description || ''} ${(op.tags || []).join(' ')} ${op.operationId || ''}`.toLowerCase(),
       });
     }
@@ -297,7 +310,7 @@ function paramRow(o, p) {
     const typ = /password/i.test(p.name) ? 'password' : (p.type === 'integer' || p.type === 'number') ? 'number' : 'text';
     let pick = pickerFor(o, p);
     if (pick && p.type === 'array') pick = { ...pick, multi: true };
-    input = `<input id="${id}" type="${typ}" data-p="${esc(p.name)}" data-in="${p.in}" placeholder="${esc(ph)}" ${pick ? `data-pick="${esc(JSON.stringify(pick))}"` : ''} autocomplete="off" ${p.required ? 'required' : ''}>`;
+    input = `<input id="${id}" type="${typ}" data-p="${esc(p.name)}" data-in="${p.in}" placeholder="${esc(ph)}" ${p.fixDefault != null ? `value="${esc(p.fixDefault)}"` : ''} ${pick ? `data-pick="${esc(JSON.stringify(pick))}"` : ''} autocomplete="off" ${p.required ? 'required' : ''}>`;
   }
   const desc = [p.description || META.PARAM_DOCS[p.name] || '', enumVals && p.type === 'array' ? `Allowed: ${enumVals.join(', ')}` : ''].filter(Boolean).join('\n');
   return `<div class="f-row"><label class="f-label" for="${id}">${esc(Pretty.label(p.name))}${p.required ? '<span class="req"> *</span>' : ''}<span class="f-key">${esc(p.name)} · ${t}</span></label>
