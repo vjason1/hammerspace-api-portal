@@ -9,23 +9,14 @@ const NAV = (() => {
   const r = (m, re) => [m, re];
   const ANY = '*';
 
-  // Operations the GUI does not expose even though their tag appears in the GUI
+  // Operations listed under "CLI Only or Hidden APIs" (not shown in the GUI and not grouped elsewhere)
   const HIDDEN = [
-    r(ANY, /^\/shares\/(related-list|uuid-list)$/), r(ANY, /^\/shares\/\{identifier\}\/(attribute|collection-sum|move|undelete)/),
-    r(ANY, /related-list$/), r(ANY, /^\/volume-groups\/findByLocation$/),
-    r(ANY, /^\/nodes\/unauthenticated$/), r(ANY, /^\/nodes\/\{identifier\}\/set-mode/),
-    r('POST', /^\/logical-volumes$/), r('DELETE', /^\/logical-volumes\/\{identifier\}$/),
-    r('GET', /^\/object-store-logical-volumes\/\{identifier\}$/),
-    r(ANY, /^\/object-storage-volumes\/\{identifier\}\/remote-reservation/),
-    r(ANY, /^\/objectives\/(export|import|findMatchingVolumes)$/),
-    r(ANY, /^\/users\/(builtin|import)/), r(ANY, /^\/users\/\{identifier\}\/preferences/), r(ANY, /^\/users\/_current\/permitted-operations$/),
-    r(ANY, /^\/versions\/upload\/\{package-location\}$/), r(ANY, /^\/sw-update\/\{identifier\}\/cancel$/),
-    r(ANY, /^\/snmp\/trap-test$/),
-    r(ANY, /^\/network-interfaces\/resolve$/), r('POST', /^\/network-interfaces\/\{identifier\}$/), r('DELETE', /^\/network-interfaces\/\{identifier\}$/),
+    r(ANY, /^\/sw-update\/\{identifier\}\/cancel$/),
     r(ANY, /^\/cntl\/(shutdown|accept-eula|state)$/),
-    r(ANY, /^\/files\/(file_exists_dp|used_capacity|worm)/),
-    r(ANY, /^\/reports\/mobility\/share$/), r(ANY, /^\/system\/ping$/), r(ANY, /^\/login$/),
+    r(ANY, /^\/reports\/mobility\/share$/), r(ANY, /^\/login$/),
   ];
+  // Operations grouped with a GUI section but not shown in the GUI (flagged "not in GUI"). Add rules here if needed.
+  const NOT_IN_GUI = [];
 
   const SECTIONS = [
     { id: 'dashboard', title: 'Dashboard', icon: 'home', tabs: [
@@ -40,9 +31,12 @@ const NAV = (() => {
       { id: 'across', title: 'Mobility Across Volumes', rules: [r('GET', /^\/reports\/mobility$/)] },
     ] },
     { id: 'data', title: 'Data', icon: 'folders', tabs: [
-      { id: 'shares', title: 'Shares', rules: [r(ANY, /^\/shares/), r(ANY, /^\/share-participants/), r('GET', /^\/files(\/\{path\})?$/)] },
+      { id: 'shares', title: 'Shares', rules: [r(ANY, /^\/shares/), r(ANY, /^\/share-participants/), r(ANY, /^\/share-replications/)] },
+      { id: 'files', title: 'Files', rules: [r(ANY, /^\/files/)] },
       { id: 'snapshots', title: 'Share Snapshots', rules: [r(ANY, /^\/share-snapshots/), r(ANY, /^\/schedules/), r(ANY, /^\/snapshot-retentions/)] },
       { id: 'buckets', title: 'Buckets & Bucket Containers', rules: [r(ANY, /^\/s3server\/\{identifier\}\/(bucket|listBuckets)$/)] },
+      { id: 'file-snapshots', title: 'File Snapshots', rules: [r(ANY, /^\/file-snapshots/)] },
+      { id: 'data-copy', title: 'Data Copy to Object', rules: [r(ANY, /^\/data-copy-to-object/)] },
     ] },
     { id: 'objectives', title: 'Objectives', icon: 'target', tabs: [
       { id: 'objectives', title: 'Objectives', rules: [r(ANY, /^\/objectives/)] },
@@ -50,12 +44,13 @@ const NAV = (() => {
     ] },
     { id: 'infrastructure', title: 'Infrastructure', icon: 'storage', tabs: [
       { id: 'volumes', title: 'Volumes', rules: [r(ANY, /^\/storage-volumes/), r(ANY, /^\/object-storage-volumes/), r(ANY, /^\/base-storage-volumes/),
-        r('GET', /^\/logical-volumes/), r('GET', /^\/object-store-logical-volumes\/\{identifier\}\/discover$/)] },
+        r(ANY, /^\/logical-volumes/), r(ANY, /^\/object-store-logical-volumes/)] },
       { id: 'volume-groups', title: 'Volume Groups', rules: [r(ANY, /^\/volume-groups/)] },
       { id: 'storage-systems', title: 'Storage Systems', rules: [r(ANY, /^\/nodes/)] },
+      { id: 'nvmeof', title: 'NVMe-oF Enclosures', rules: [r(ANY, /^\/nvmeof-enclosures/)] },
     ] },
     { id: 'admin', title: 'Administration', icon: 'gear', tabs: [
-      { id: 'system', title: 'System', rules: [r(ANY, /^\/cntl/), r(ANY, /^\/disk-drives/), r('GET', /^\/sites\/local$/)] },
+      { id: 'system', title: 'System', rules: [r(ANY, /^\/cntl/), r(ANY, /^\/disk-drives/), r('GET', /^\/sites\/local$/), r(ANY, /^\/system\/ping$/)] },
       { id: 'services', title: 'Services', rules: [r(ANY, /^\/data-portals/)] },
       { id: 'network', title: 'Network', rules: [r(ANY, /^\/network-interfaces/)], also: ['put:/cntl/{identifier}'],
         note: 'Floating IPs are part of the cluster settings — use “Update Cluster” (portalFloatingIps / clusterFloatingIps).' },
@@ -86,9 +81,9 @@ const NAV = (() => {
   function classify(method, path) {
     const M = method.toUpperCase();
     if (!test(HIDDEN, M, path)) {
-      for (const s of SECTIONS) for (const t of s.tabs) if (test(t.rules, M, path)) return { section: s.id, tab: t.id };
+      for (const s of SECTIONS) for (const t of s.tabs) if (test(t.rules, M, path)) return { section: s.id, tab: t.id, notInGui: test(NOT_IN_GUI, M, path) };
     }
-    return { section: 'hidden', tab: null };
+    return { section: 'hidden', tab: null, notInGui: true };
   }
 
   const section = id => id === 'hidden' ? HIDDEN_SECTION : SECTIONS.find(s => s.id === id);

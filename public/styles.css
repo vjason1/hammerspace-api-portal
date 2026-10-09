@@ -547,3 +547,7 @@ pre.cli-ex { margin: 0 0 6px; background: var(--code-bg); color: var(--code-ink)
   .topbar > .wordmark { font-size: 13px; gap: 0; }
   .topbar .wm-logo { height: 18px; }
 }
+
+/* grouped with a GUI section but not shown in the GUI */
+.op.op-ng .p::before { content: "not in GUI · "; color: #8a6d2f; font-family: var(--sans); }
+.ng-chip { font-size: 11px; color: #7a5a17; background: #fbf4e6; border: 1px solid #ecd9ad; border-radius: 2px; padding: 0 5px; white-space: nowrap; }

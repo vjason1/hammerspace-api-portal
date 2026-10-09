@@ -64,7 +64,7 @@ function buildOps() {
         tag: (op.tags && op.tags[0]) || 'other',
         nav: NAV.classify(method, path),
         params: [...(item.parameters || []), ...(op.parameters || [])],
-        search: `${method} ${path} ${CLI.searchText(`${method}:${path}`)} ${NAV.classify(method, path).section === 'hidden' ? 'hidden cli' : 'gui'} ${op.summary || ''} ${op.description || ''} ${(op.tags || []).join(' ')} ${op.operationId || ''}`.toLowerCase(),
+        search: `${method} ${path} ${CLI.searchText(`${method}:${path}`)} ${NAV.classify(method, path).section === 'hidden' ? 'hidden cli' : NAV.classify(method, path).notInGui ? 'notingui' : 'gui'} ${op.summary || ''} ${op.description || ''} ${(op.tags || []).join(' ')} ${op.operationId || ''}`.toLowerCase(),
       });
     }
   }

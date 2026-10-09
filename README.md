@@ -196,7 +196,7 @@ Every operation has a **Run on: …** button next to its submit button. Tick clu
 
 | File | What to change |
 |---|---|
-| [`public/nav.js`](public/nav.js) | Which GUI section/tab each API belongs to, and the `HIDDEN` list that sends operations to *CLI Only or Hidden APIs*. Rules are `[METHOD, /path regex/]` and the first match wins. |
+| [`public/nav.js`](public/nav.js) | Which GUI section/tab each API belongs to; `HIDDEN` (operations listed under *CLI Only or Hidden APIs*); and `NOT_IN_GUI` (optional: operations grouped in a section but flagged as not in the GUI; empty by default). Rules are `[METHOD, /path regex/]` and the first match wins. |
 | [`tools/cli-docs/`](tools/cli-docs/) | Regenerates `public/cli-docs.js` (CLI command and option help) from a new Command Line Reference PDF. `map.py` maps CLI commands to API operations. |
 | [`public/meta.js`](public/meta.js) | Field descriptions, which fields are system-managed or advanced, and which list feeds each reference dropdown. |
 | [`public/objects.js`](public/objects.js) | The object types loaded into the name ↔ UUID directory. |

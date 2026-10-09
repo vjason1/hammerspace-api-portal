@@ -54,9 +54,9 @@ function renderList() {
   const where = routeInfo();
   const searching = terms.length > 0 || activeMethods.size < METHODS.length;
   const gui = shown.filter(o => o.nav.section !== 'hidden').length;
-  $('#counts').innerHTML = `${shown.length} of ${OPS.length} operations · <b>${gui}</b> in the GUI · <b>${shown.length - gui}</b> CLI only / hidden`;
+  $('#counts').innerHTML = `${shown.length} of ${OPS.length} operations · <b>${gui}</b> in GUI sections · <b>${shown.length - gui}</b> CLI only / hidden`;
 
-  const opLink = o => `<a class="op ${where.op === o.id ? 'active' : ''}" href="${opHref(o)}" title="${esc(o.method.toUpperCase() + ' ' + o.path)}">
+  const opLink = o => `<a class="op ${where.op === o.id ? 'active' : ''} ${o.nav.notInGui && o.nav.section !== 'hidden' ? 'op-ng' : ''}" href="${opHref(o)}" title="${esc(o.method.toUpperCase() + ' ' + o.path)}${o.nav.notInGui && o.nav.section !== 'hidden' ? ' · not shown in the Hammerspace GUI' : ''}">
       <span class="m m-${o.method}">${o.method}</span><span class="s">${esc(opName(o))}</span><span class="p">${esc(o.path)}</span></a>`;
   const group = (key, href, title, ops, cls) => {
     if (!ops.length) return '';
@@ -123,6 +123,10 @@ function locationBadge(o) {
     return `<a class="loc loc-hidden" href="#tab=hidden/${encodeURIComponent(o.tag)}" title="Not exposed in the Hammerspace GUI">${NAV.icon('terminal', 13)} ${cli.length ? `CLI only · ${esc(cli[0])}` : 'Not in GUI or CLI — API only'}</a>`;
   }
   const s = NAV.section(o.nav.section), t = NAV.tab(o.nav.section, o.nav.tab);
+  if (o.nav.notInGui) {
+    const cli = CLI.forOp(o.id);
+    return `<a class="loc loc-hidden" href="#tab=${s.id}/${t.id}" title="Grouped under ${esc(s.title)} › ${esc(t.title)}, but not shown in the Hammerspace GUI">${NAV.icon(s.icon, 13)} ${esc(s.title)} › ${esc(t.title)} · not in GUI${cli.length ? ` · CLI ${esc(cli[0])}` : ' · API only'}</a>`;
+  }
   return `<a class="loc" href="#tab=${s.id}/${t.id}" title="Where this lives in the Hammerspace GUI">${NAV.icon(s.icon, 13)} In GUI: ${esc(s.title)} › ${esc(t.title)}</a>`;
 }
 
@@ -140,7 +144,7 @@ function opTable(ops, caption) {
   return `<div class="panel"><div class="panel-h">${esc(caption)}<span class="sp"></span><span class="panel-n">${ops.length}</span></div>
     <table class="gt"><thead><tr><th style="width:84px">Method</th><th>Action</th><th>Endpoint</th></tr></thead><tbody>${ops.map(o => `
       <tr><td><span class="mb mb-${o.method}">${o.method.toUpperCase()}</span></td>
-        <td><a href="${opHref(o)}">${esc(opName(o))}</a> ${CLI.chips(o.id)}${o.op.description && o.op.description !== o.op.summary ? `<div class="gt-sub">${esc(o.op.description.slice(0, 160))}</div>` : ''}</td>
+        <td><a href="${opHref(o)}">${esc(opName(o))}</a> ${o.nav.notInGui && o.nav.section !== 'hidden' ? '<span class="ng-chip" title="Not shown in the Hammerspace GUI">not in GUI</span> ' : ''}${CLI.chips(o.id)}${o.op.description && o.op.description !== o.op.summary ? `<div class="gt-sub">${esc(o.op.description.slice(0, 160))}</div>` : ''}</td>
         <td><code>${esc(o.path)}</code></td></tr>`).join('')}</tbody></table></div>`;
 }
 
