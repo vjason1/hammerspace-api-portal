@@ -10,7 +10,7 @@
 
 <!-- Login -->
 <section id="login" class="login" hidden>
-  <div class="login-top"><span class="wordmark"><span class="wm-mark" aria-hidden="true"></span>HAMMERSPACE</span></div>
+  <div class="login-top"><span class="wordmark"><img class="wm-logo" src="img/hammerspace-logo.png" alt="Hammerspace"></span></div>
   <form id="loginForm" class="login-card" autocomplete="on">
     <div class="login-head"><h1>API Portal</h1><p>Multi-cluster management console</p></div>
     <div><h2 id="lgTitle" class="lg-title">Sign in</h2><p id="lgIntro" class="lg-intro"></p></div>
@@ -32,7 +32,7 @@
 <!-- App -->
 <div id="app" class="app" hidden>
   <header class="topbar">
-    <a class="wordmark" href="#sec=dashboard" title="Dashboard"><span class="wm-mark" aria-hidden="true"></span>HAMMERSPACE<span class="wm-sub">API Portal</span></a>
+    <a class="wordmark" href="#sec=dashboard" title="Dashboard"><img class="wm-logo" src="img/hammerspace-logo.png" alt="Hammerspace"><span class="wm-sub">API Portal</span></a>
     <nav class="top-actions">
       <a href="#clusters" class="tb" data-nav="clusters" title="Clusters"><svg class="ico" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/></svg><span>Clusters</span></a>
       <a href="#objects" class="tb" data-nav="objects" title="Object IDs: names and UUIDs"><svg class="ico" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7 10h4M7 14h7M15.5 10h1.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>IDs</span></a>
@@ -72,6 +72,8 @@
 
 <script src="render.js"></script>
 <script src="meta.js"></script>
+<script src="cli-docs.js"></script>
+<script src="cli.js"></script>
 <script src="nav.js"></script>
 <script src="forms.js"></script>
 <script src="extract.js"></script>

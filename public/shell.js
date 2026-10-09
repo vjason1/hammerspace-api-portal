@@ -118,7 +118,10 @@ function pageHead(sid, tid, extraCrumb) {
 function portalHead(id) { $('#main').insertAdjacentHTML('afterbegin', pageHead('portal', id)); renderRail(); }
 
 function locationBadge(o) {
-  if (o.nav.section === 'hidden') return `<a class="loc loc-hidden" href="#tab=hidden/${encodeURIComponent(o.tag)}" title="Not exposed in the Hammerspace GUI">${NAV.icon('terminal', 13)} CLI only / hidden · ${esc(Pretty.label(o.tag))}</a>`;
+  if (o.nav.section === 'hidden') {
+    const cli = CLI.forOp(o.id);
+    return `<a class="loc loc-hidden" href="#tab=hidden/${encodeURIComponent(o.tag)}" title="Not exposed in the Hammerspace GUI">${NAV.icon('terminal', 13)} ${cli.length ? `CLI only · ${esc(cli[0])}` : 'Not in GUI or CLI — API only'}</a>`;
+  }
   const s = NAV.section(o.nav.section), t = NAV.tab(o.nav.section, o.nav.tab);
   return `<a class="loc" href="#tab=${s.id}/${t.id}" title="Where this lives in the Hammerspace GUI">${NAV.icon(s.icon, 13)} In GUI: ${esc(s.title)} › ${esc(t.title)}</a>`;
 }
@@ -137,7 +140,7 @@ function opTable(ops, caption) {
   return `<div class="panel"><div class="panel-h">${esc(caption)}<span class="sp"></span><span class="panel-n">${ops.length}</span></div>
     <table class="gt"><thead><tr><th style="width:84px">Method</th><th>Action</th><th>Endpoint</th></tr></thead><tbody>${ops.map(o => `
       <tr><td><span class="mb mb-${o.method}">${o.method.toUpperCase()}</span></td>
-        <td><a href="${opHref(o)}">${esc(opName(o))}</a>${o.op.description && o.op.description !== o.op.summary ? `<div class="gt-sub">${esc(o.op.description.slice(0, 160))}</div>` : ''}</td>
+        <td><a href="${opHref(o)}">${esc(opName(o))}</a> ${CLI.chips(o.id)}${o.op.description && o.op.description !== o.op.summary ? `<div class="gt-sub">${esc(o.op.description.slice(0, 160))}</div>` : ''}</td>
         <td><code>${esc(o.path)}</code></td></tr>`).join('')}</tbody></table></div>`;
 }
 
@@ -192,7 +195,7 @@ document.addEventListener('click', e => {
 function renderHidden(tag) {
   CURRENT = null; renderList(); renderRail();
   const hid = OPS.filter(o => o.nav.section === 'hidden');
-  const intro = `<div class="note">These API operations are not exposed anywhere in the Hammerspace management GUI (based on the 5.2 GUI). They are only reachable through the API or the CLI. Some are internal helpers (lookups, related-lists, login); others configure features that are otherwise CLI-only (e.g. DNS, NTP, LDAP, KMS, roles, syslog, SMTP, antivirus).</div>`;
+  const intro = `<div class="note">These API operations are not exposed anywhere in the Hammerspace management GUI (based on the 5.2 GUI). Operations with a matching command in the Hammerspace ${esc(CLI.version)} Command Line Reference are marked with that command (<b>CLI only</b>); the rest have no GUI page or CLI command and are reachable <b>only through the API</b> (internal helpers such as lookups, related-lists and login, and some newer features).</div>`;
   if (tag) {
     $('#main').innerHTML = `${pageHead('hidden', tag)}${opTable(opsIn('hidden', tag), `${Pretty.label(tag)} — CLI only / hidden`)}`;
     return;
@@ -200,10 +203,11 @@ function renderHidden(tag) {
   const tags = [...new Set(hid.map(o => o.tag))].sort();
   $('#main').innerHTML = `${pageHead('hidden', null)}${intro}
     <div class="panel"><div class="panel-h">API areas<span class="sp"></span><span class="panel-n">${hid.length} operations</span></div>
-    <table class="gt"><thead><tr><th>Area</th><th style="width:110px">Operations</th><th>Methods</th></tr></thead><tbody>${tags.map(t => {
+    <table class="gt"><thead><tr><th>Area</th><th style="width:100px">Operations</th><th>Methods</th><th>CLI commands</th></tr></thead><tbody>${tags.map(t => {
       const ops = hid.filter(o => o.tag === t);
       const ms = [...new Set(ops.map(o => o.method))].sort((a, b) => ORDER[a] - ORDER[b]);
-      return `<tr><td><a href="#tab=hidden/${encodeURIComponent(t)}">${esc(Pretty.label(t))}</a> <code class="gt-tag">${esc(t)}</code></td><td>${ops.length}</td><td>${ms.map(m => `<span class="mb mb-${m}">${m.toUpperCase()}</span>`).join(' ')}</td></tr>`;
+      return `<tr><td><a href="#tab=hidden/${encodeURIComponent(t)}">${esc(Pretty.label(t))}</a> <code class="gt-tag">${esc(t)}</code></td><td>${ops.length}</td><td>${ms.map(m => `<span class="mb mb-${m}">${m.toUpperCase()}</span>`).join(' ')}</td>
+        <td>${[...new Set(ops.flatMap(o => CLI.forOp(o.id)))].map(c => `<code class="cli-chip">${esc(c)}</code>`).join(' ') || '<span class="pv-dim">API only</span>'}</td></tr>`;
     }).join('')}</tbody></table></div>`;
 }
 

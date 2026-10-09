@@ -64,7 +64,7 @@ function buildOps() {
         tag: (op.tags && op.tags[0]) || 'other',
         nav: NAV.classify(method, path),
         params: [...(item.parameters || []), ...(op.parameters || [])],
-        search: `${method} ${path} ${NAV.classify(method, path).section === 'hidden' ? 'hidden cli' : 'gui'} ${op.summary || ''} ${op.description || ''} ${(op.tags || []).join(' ')} ${op.operationId || ''}`.toLowerCase(),
+        search: `${method} ${path} ${CLI.searchText(`${method}:${path}`)} ${NAV.classify(method, path).section === 'hidden' ? 'hidden cli' : 'gui'} ${op.summary || ''} ${op.description || ''} ${(op.tags || []).join(' ')} ${op.operationId || ''}`.toLowerCase(),
       });
     }
   }
@@ -301,7 +301,7 @@ function paramRow(o, p) {
   }
   const desc = [p.description || META.PARAM_DOCS[p.name] || '', enumVals && p.type === 'array' ? `Allowed: ${enumVals.join(', ')}` : ''].filter(Boolean).join('\n');
   return `<div class="f-row"><label class="f-label" for="${id}">${esc(Pretty.label(p.name))}${p.required ? '<span class="req"> *</span>' : ''}<span class="f-key">${esc(p.name)} · ${t}</span></label>
-    <div class="f-control">${input}${desc ? `<p class="f-desc">${esc(desc)}</p>` : ''}</div></div>`;
+    <div class="f-control">${input}${desc ? `<p class="f-desc">${esc(desc)}</p>` : ''}${CLI.paramHtml(o.id, p.name, desc)}</div></div>`;
 }
 
 function renderOp(o) {
@@ -357,6 +357,7 @@ function renderOp(o) {
       <div class="meta">${esc(path)} · ${esc(o.tag)}${op.operationId ? ' · ' + esc(op.operationId) : ''}</div>
       ${danger ? `<div class="warn">⚠ This operation can change or remove cluster state. You’ll be asked to confirm before it is sent.</div>` : ''}
     </div>
+    ${CLI.opCard(o.id)}
     <form id="reqForm" novalidate>
       ${card('Which item', pathP.map(p => paramRow(o, p)).join(''))}
       ${card('Options', queryP.map(p => paramRow(o, p)).join(''))}

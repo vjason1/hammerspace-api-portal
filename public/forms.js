@@ -388,7 +388,8 @@ const Forms = (() => {
     const d = doc(sName, key);
     const r = h('div', { class: 'f-row' + (comp.el.tagName === 'DETAILS' ? ' f-row-group' : '') });
     if (comp.el.tagName === 'DETAILS') {
-      if (d) comp.el.querySelector('summary').insertAdjacentHTML('afterend', `<p class="f-desc">${esc(d)}</p>`);
+      const cg = typeof CLI !== 'undefined' ? CLI.fieldHtml(sName, key, d) : '';
+      if (d || cg) comp.el.querySelector('summary').insertAdjacentHTML('afterend', `${d ? `<p class="f-desc">${esc(d)}</p>` : ''}${cg ? `<div class="f-desc">${cg}</div>` : ''}`);
       r.appendChild(comp.el);
       return r;
     }
@@ -399,6 +400,8 @@ const Forms = (() => {
     const right = h('div', { class: 'f-control' });
     right.appendChild(comp.el);
     if (d) right.appendChild(h('p', { class: 'f-desc' }, esc(d)));
+    const cli = typeof CLI !== 'undefined' ? CLI.fieldHtml(sName, key, d) : '';
+    if (cli) right.insertAdjacentHTML('beforeend', cli);
     r.appendChild(right);
     return r;
   }
