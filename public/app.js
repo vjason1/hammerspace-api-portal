@@ -369,6 +369,7 @@ function renderOp(o) {
       ${op.description && op.description !== op.summary ? `<div class="sum">${esc(op.description)}</div>` : ''}
       <div class="meta">${esc(path)} · ${esc(o.tag)}${op.operationId ? ' · ' + esc(op.operationId) : ''}</div>
       ${danger ? `<div class="warn">⚠ This operation can change or remove cluster state. You’ll be asked to confirm before it is sent.</div>` : ''}
+      ${isApiOnly(o) ? cautionNote() : ''}
     </div>
     ${CLI.opCard(o.id)}
     <form id="reqForm" novalidate>
@@ -543,6 +544,7 @@ function updatePreview() {
   if (!CURRENT || !$('#cmdPreview')) return;
   clearTimeout(previewTimer);
   previewTimer = setTimeout(() => {
+    if (!CURRENT || !$("#cmdPreview")) return;
     const o = CURRENT, c = collect(o);
     $('#urlPreview').textContent = `${o.method.toUpperCase()} ${(activeCluster()?.url || '').replace(/\/$/, '')}${CONFIG.basePath}${c.path}${c.query}`;
     $('#cmdPreview').textContent = buildCommand(o, { style: CMD_STYLE, secrets: $('#cmdSecrets')?.checked });

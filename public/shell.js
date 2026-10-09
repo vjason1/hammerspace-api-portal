@@ -57,7 +57,7 @@ function renderList() {
   $('#counts').innerHTML = `${shown.length} of ${OPS.length} operations · <b>${gui}</b> in GUI sections · <b>${shown.length - gui}</b> CLI only / hidden`;
 
   const opLink = o => `<a class="op ${where.op === o.id ? 'active' : ''} ${o.nav.notInGui && o.nav.section !== 'hidden' ? 'op-ng' : ''}" href="${opHref(o)}" title="${esc(o.method.toUpperCase() + ' ' + o.path)}${o.nav.notInGui && o.nav.section !== 'hidden' ? ' · not shown in the Hammerspace GUI' : ''}">
-      <span class="m m-${o.method}">${o.method}</span><span class="s">${esc(opName(o))}</span><span class="p">${esc(o.path)}</span></a>`;
+      <span class="m m-${o.method}">${o.method}</span><span class="s">${isApiOnly(o) ? '<span class="caution-mark" title="Use with caution">⚠</span> ' : ''}${esc(opName(o))}</span><span class="p">${esc(o.path)}</span></a>`;
   const group = (key, href, title, ops, cls) => {
     if (!ops.length) return '';
     const open = searching || TREE_OPEN.has(key) || (where.op && ops.some(o => o.id === where.op));
@@ -130,6 +130,12 @@ function locationBadge(o) {
   return `<a class="loc" href="#tab=${s.id}/${t.id}" title="Where this lives in the Hammerspace GUI">${NAV.icon(s.icon, 13)} In GUI: ${esc(s.title)} › ${esc(t.title)}</a>`;
 }
 
+// API-only operations: in the unfiled/hidden section and not in the Command Line Reference
+const isApiOnly = o => o.nav.section === 'hidden' && !CLI.forOp(o.id).length;
+const CAUTION_TEXT = 'Use with caution. This API is not exposed in the Hammerspace GUI and is not documented in the Command Line Reference. It may impact cluster operation and stability. Test on a non-production cluster first, and check with Hammerspace support if you are unsure.';
+const cautionNote = (extra = '') => `<div class="caution" role="note"><b>⚠ Caution:</b> ${esc(CAUTION_TEXT)}${extra}</div>`;
+const cautionChip = () => '<span class="caution-chip" title="Not in the GUI or the CLI guide — may impact cluster operation and stability">⚠ use with caution</span>';
+
 // ---------------------------------------------------------------- section / tab landing pages
 function renderSection(sid) {
   if (sid === 'dashboard') return renderDashboard();
@@ -144,7 +150,7 @@ function opTable(ops, caption) {
   return `<div class="panel"><div class="panel-h">${esc(caption)}<span class="sp"></span><span class="panel-n">${ops.length}</span></div>
     <table class="gt"><thead><tr><th style="width:84px">Method</th><th>Action</th><th>Endpoint</th></tr></thead><tbody>${ops.map(o => `
       <tr><td><span class="mb mb-${o.method}">${o.method.toUpperCase()}</span></td>
-        <td><a href="${opHref(o)}">${esc(opName(o))}</a> ${o.nav.notInGui && o.nav.section !== 'hidden' ? '<span class="ng-chip" title="Not shown in the Hammerspace GUI">not in GUI</span> ' : ''}${CLI.chips(o.id)}${o.op.description && o.op.description !== o.op.summary ? `<div class="gt-sub">${esc(o.op.description.slice(0, 160))}</div>` : ''}</td>
+        <td><a href="${opHref(o)}">${esc(opName(o))}</a> ${isApiOnly(o) ? cautionChip() + ' ' : ''}${o.nav.notInGui && o.nav.section !== 'hidden' ? '<span class="ng-chip" title="Not shown in the Hammerspace GUI">not in GUI</span> ' : ''}${CLI.chips(o.id)}${o.op.description && o.op.description !== o.op.summary ? `<div class="gt-sub">${esc(o.op.description.slice(0, 160))}</div>` : ''}</td>
         <td><code>${esc(o.path)}</code></td></tr>`).join('')}</tbody></table></div>`;
 }
 
@@ -215,9 +221,10 @@ document.addEventListener('click', e => {
 function renderHidden(tag) {
   CURRENT = null; renderList(); renderRail();
   const hid = OPS.filter(o => o.nav.section === 'hidden');
-  const intro = `<div class="note">These API operations are not exposed anywhere in the Hammerspace management GUI (based on the 5.2 GUI). Operations with a matching command in the Hammerspace ${esc(CLI.version)} Command Line Reference are marked with that command (<b>CLI only</b>); the rest have no GUI page or CLI command and are reachable <b>only through the API</b> (internal helpers such as lookups, related-lists and login, and some newer features).</div>`;
+  const intro = `<div class="note">These API operations are not exposed anywhere in the Hammerspace management GUI (based on the 5.2 GUI). Operations with a matching command in the Hammerspace ${esc(CLI.version)} Command Line Reference are marked with that command (<b>CLI only</b>); the rest have no GUI page or CLI command and are reachable <b>only through the API</b> (internal helpers such as lookups, related-lists and login, and some newer features). API-only operations are marked <span class="caution-chip">⚠ use with caution</span>: they may impact cluster operation and stability.</div>`;
   if (tag) {
-    $('#main').innerHTML = `${pageHead('hidden', tag)}${opTable(opsIn('hidden', tag), `${Pretty.label(tag)} — CLI only / hidden`)}`;
+    const tops = opsIn('hidden', tag), risky = tops.filter(isApiOnly).length;
+    $('#main').innerHTML = `${pageHead('hidden', tag)}${risky ? cautionNote(risky < tops.length ? ` <br>Applies to the ${risky} operation${risky === 1 ? '' : 's'} marked <i>use with caution</i> below; the others have CLI commands.` : '') : ''}${opTable(tops, `${Pretty.label(tag)} — CLI only / hidden`)}`;
     return;
   }
   const tags = [...new Set(hid.map(o => o.tag))].sort();
@@ -227,7 +234,7 @@ function renderHidden(tag) {
       const ops = hid.filter(o => o.tag === t);
       const ms = [...new Set(ops.map(o => o.method))].sort((a, b) => ORDER[a] - ORDER[b]);
       return `<tr><td><a href="#tab=hidden/${encodeURIComponent(t)}">${esc(Pretty.label(t))}</a> <code class="gt-tag">${esc(t)}</code></td><td>${ops.length}</td><td>${ms.map(m => `<span class="mb mb-${m}">${m.toUpperCase()}</span>`).join(' ')}</td>
-        <td>${[...new Set(ops.flatMap(o => CLI.forOp(o.id)))].map(c => `<code class="cli-chip">${esc(c)}</code>`).join(' ') || '<span class="pv-dim">API only</span>'}</td></tr>`;
+        <td>${[...new Set(ops.flatMap(o => CLI.forOp(o.id)))].map(c => `<code class="cli-chip">${esc(c)}</code>`).join(' ') || '<span class="pv-dim">API only</span>'}${ops.some(isApiOnly) ? ` ${cautionChip()}` : ''}</td></tr>`;
     }).join('')}</tbody></table></div>`;
 }
 
