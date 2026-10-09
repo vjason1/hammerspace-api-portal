@@ -386,6 +386,8 @@ const Forms = (() => {
 
   function row(key, s, comp, sName) {
     const d = doc(sName, key);
+    const na = typeof VERSIONS !== 'undefined' && typeof PROFILE !== 'undefined' && !VERSIONS.fieldAvailable(PROFILE, sName, key);
+    if (na) { comp.el.querySelectorAll?.('input,select,textarea,button').forEach(x => { x.disabled = true; }); if (comp.el.matches?.('input,select,textarea')) comp.el.disabled = true; }
     const r = h('div', { class: 'f-row' + (comp.el.tagName === 'DETAILS' ? ' f-row-group' : '') });
     if (comp.el.tagName === 'DETAILS') {
       const cg = typeof CLI !== 'undefined' ? CLI.fieldHtml(sName, key, d) : '';
@@ -399,6 +401,7 @@ const Forms = (() => {
     r.innerHTML = `<label class="f-label" for="${id}">${esc(Pretty.label(key))}<span class="f-key">${esc(key)} · ${esc(typeHint(s))}</span></label>`;
     const right = h('div', { class: 'f-control' });
     right.appendChild(comp.el);
+    if (na) { r.classList.add('f-na'); right.insertAdjacentHTML('afterbegin', `<p class="f-na-note">Not available on ${esc(PROFILE.label)} — added in ${esc(VERSIONS.sinceField(sName, key))}. Not sent to this cluster.</p>`); }
     if (d) right.appendChild(h('p', { class: 'f-desc' }, esc(d)));
     const cli = typeof CLI !== 'undefined' ? CLI.fieldHtml(sName, key, d) : '';
     if (cli) right.insertAdjacentHTML('beforeend', cli);

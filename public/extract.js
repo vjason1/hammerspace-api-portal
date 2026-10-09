@@ -157,6 +157,11 @@ const Extract = (() => {
     const plain = sections.filter(s => !s.perShare);
     let done = 0; const total = () => plain.length + perShare.length;
     await pool(plain, 4, async s => {
+      if (opts.unavailable && opts.unavailable(s.path.split('?')[0])) {   // not in this cluster's release: don't call it
+        results.push({ ...s, status: 404, ok: false, unavailable: true });
+        onProgress({ section: s, state: 'na', status: 404, done: ++done, total: total() });
+        return;
+      }
       onProgress({ section: s, state: 'running' });
       try {
         const r = await fetchJson(s.path, clusterId);

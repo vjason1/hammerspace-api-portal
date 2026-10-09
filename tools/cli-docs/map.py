@@ -68,6 +68,7 @@ M = {
  'role-create':['POST /roles'],'role-delete':['DELETE /roles/'+I],'role-list':['GET /roles','GET /roles/'+I],'role-update':['PUT /roles/'+I],
  'user-create':['POST /users'],'user-delete':['DELETE /users/'+I],'user-import':['POST /users/import','POST /users/import/{path}'],
  'user-list':['GET /users','GET /users/'+I],'user-password-update':['PUT /users/{identifier}/password','POST /users/{identifier}/reset-password'],'user-update':['PUT /users/'+I],
+ 'mdsi-add':['POST /mdsis'],'mdsi-list':['GET /mdsis','GET /mdsis/'+I],'mdsi-remove':['DELETE /mdsis/'+I],
  'drive-list':['GET /disk-drives','GET /disk-drives/'+I],
  'logical-volume-create':['POST /logical-volumes'],'logical-volume-delete':['DELETE /logical-volumes/'+I],
  'logical-volume-discover':['GET /logical-volumes/{identifier}/discover'],'logical-volume-list':['GET /logical-volumes','GET /logical-volumes/'+I],

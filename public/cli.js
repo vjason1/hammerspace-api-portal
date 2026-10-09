@@ -3,7 +3,14 @@
 'use strict';
 
 const CLI = (() => {
-  const D = typeof CLI_DOCS !== 'undefined' ? CLI_DOCS : { version: '', commands: {}, ops: {}, fields: {}, params: {} };
+  const ALL = typeof CLI_DOCS_BY_VERSION !== 'undefined' ? CLI_DOCS_BY_VERSION : {};
+  const EMPTY = { version: '', commands: {}, ops: {}, fields: {}, params: {} };
+  const latest = Object.keys(ALL).sort().pop();
+  let D = ALL[latest] || EMPTY;
+  // Switch to the CLI help of a release (e.g. '5.2'); returns true when it changed
+  function setVersion(v) { const n = ALL[v] || ALL[latest] || EMPTY; const changed = n !== D; D = n; return changed; }
+  // Any release's CLI command for an operation (used to tell "CLI only" from "API only" regardless of the active cluster)
+  const anyFor = opId => [...new Set(Object.values(ALL).flatMap(d => d.ops[opId] || []))];
   const e = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const norm = s => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
   const desc = (cmd, opt) => D.commands[cmd]?.options?.[opt] || '';
@@ -21,7 +28,7 @@ const CLI = (() => {
       seen.add(key); items.push({ cmd, opt, d });
     }
     if (!items.length) return '';
-    const title = `<span class="cli-tag" title="From the CLI’s built-in help and the Hammerspace ${e(D.version)} Command Line Reference">CLI</span>`;
+    const title = `<span class="cli-tag" title="From the ${e(D.version)} CLI’s built-in help and the Hammerspace Command Line Reference">CLI ${e(D.version)}</span>`;
     if (items.length === 1 && items[0].d.length <= 240) {
       const it = items[0];
       return `<p class="cli-doc">${title} <code title="${e(it.cmd)}">--${e(it.opt)}</code> ${fmt(it.d)}</p>`;
@@ -37,13 +44,13 @@ const CLI = (() => {
   const fieldText = (schema, key) => { const p = D.fields[`${schema}.${key}`]; return p ? desc(p[0][0], p[0][1]) : ''; };
 
   const forOp = opId => D.ops[opId] || [];
-  const searchText = opId => forOp(opId).join(' ');
+  const searchText = opId => anyFor(opId).join(' ');
 
   // "CLI equivalent" card on an operation page
   function opCard(opId) {
     const cmds = forOp(opId).map(c => [c, D.commands[c]]).filter(([, v]) => v);
     if (!cmds.length) return '';
-    return `<div class="card cli-card"><h3><span class="cli-tag">CLI</span> Command-line equivalent<span class="sp"></span></h3>
+    return `<div class="card cli-card"><h3><span class="cli-tag">CLI ${e(D.version)}</span> Command-line equivalent<span class="sp"></span></h3>
       <div class="body">${cmds.map(([name, c]) => {
         const opts = Object.entries(c.options);
         return `<div class="cli-cmd"><div class="cli-head"><code class="cli-name">${e(name)}</code> <span class="pv-dim">${e(c.chapter)}</span><span class="cli-src">Source: ${e(D.sources?.[c.source] || 'Command Line Reference')}</span></div>
@@ -54,5 +61,5 @@ const CLI = (() => {
   }
   const chips = opId => forOp(opId).map(c => `<code class="cli-chip">${e(c)}</code>`).join(' ');
 
-  return { fieldHtml, paramHtml, fieldText, forOp, searchText, opCard, chips, version: D.version, commandCount: Object.keys(D.commands).length };
+  return { fieldHtml, paramHtml, fieldText, forOp, anyFor, searchText, opCard, chips, setVersion, get version() { return D.version; }, releases: Object.keys(ALL) };
 })();

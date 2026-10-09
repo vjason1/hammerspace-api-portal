@@ -59,12 +59,13 @@ const NAV = (() => {
       { id: 'snmp', title: 'SNMP', rules: [r(ANY, /^\/snmp/)] },
       { id: 'software', title: 'Software Update', rules: [r(ANY, /^\/versions/), r(ANY, /^\/sw-update/)] },
       { id: 'support', title: 'Support', rules: [r(ANY, /^\/pd-support/)] },
-      { id: 'ad', title: 'Active Directory', rules: [r(ANY, /^\/ad(\/|$)/)] },
+      { id: 'ad', title: 'Directory Services', rules: [r(ANY, /^\/ad(\/|$)/), r(ANY, /^\/name-services/)] },
       { id: 'users', title: 'Users', rules: [r(ANY, /^\/users/)] },
       { id: 'licenses', title: 'Licenses', rules: [r(ANY, /^\/licenses/)] },
       { id: 'backup', title: 'System Backup', rules: [r(ANY, /^\/backup/)] },
-      { id: 'certificates', title: 'Certificates', rules: [], also: ['get:/cntl/{identifier}', 'put:/cntl/{identifier}'],
-        note: 'The cluster certificate is part of the cluster settings: “Update Cluster” with serverCertChain / serverPrivateKey, or resetServerCert to go back to the default.' },
+      { id: 'certificates', title: 'TLS', rules: [r(ANY, /^\/pki-certificate-authorities/), r(ANY, /^\/pki-certificates/), r(ANY, /^\/pki-managed-certificates/)],
+        also: ['get:/cntl/{identifier}', 'put:/cntl/{identifier}'],
+        note: 'The web server certificate and NFS transport-layer security are cluster settings: “Update Cluster” with serverCertChain / serverPrivateKey (or resetServerCert), and nfsTransportPolicy (5.3). Root CA, trusted and signed certificates use the PKI operations below (5.3).' },
       { id: 'smb', title: 'SMB', rules: [r(ANY, /^\/smbautohomes/)], also: ['put:/ad/{identifier}'],
         note: 'Multichannel and the auto-home switch are Active Directory settings (multiChannelEnabled, smbAutohomeEnabled).' },
     ] },
@@ -84,6 +85,12 @@ const NAV = (() => {
       for (const s of SECTIONS) for (const t of s.tabs) if (test(t.rules, M, path)) return { section: s.id, tab: t.id, notInGui: test(NOT_IN_GUI, M, path) };
     }
     return { section: 'hidden', tab: null, notInGui: true };
+  }
+
+  // Apply a release profile's GUI tab names (e.g. 5.2 calls Directory Services "Active Directory")
+  for (const s of SECTIONS) for (const t of s.tabs) t.baseTitle = t.title;
+  function applyProfile(p) {
+    for (const s of SECTIONS) for (const t of s.tabs) t.title = (p && p.tabTitles[`${s.id}/${t.id}`]) || t.baseTitle;
   }
 
   const section = id => id === 'hidden' ? HIDDEN_SECTION : SECTIONS.find(s => s.id === id);
@@ -108,5 +115,5 @@ const NAV = (() => {
   };
   const icon = (name, size = 20) => `<svg class="ico" width="${size}" height="${size}" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">${ICONS[name] || ''}</svg>`;
 
-  return { SECTIONS, HIDDEN_SECTION, classify, section, tab, icon };
+  return { SECTIONS, HIDDEN_SECTION, classify, section, tab, icon, applyProfile };
 })();

@@ -19,3 +19,15 @@ python3 build.py             # merges both -> ../../public/cli-docs.js; prints o
 - `map.py` lists which API operations each CLI command corresponds to. Add new commands there.
 - `ALIAS` in `build.py` covers options whose name differs from the API field, e.g. `--description` → `comment` and `--size` → `shareSizeLimit`.
 - Options that can't be mapped to a field still appear in the operation's **Command-line equivalent** card.
+
+## Per-release data
+
+`public/cli-docs.js` holds one data set per release (`CLI_DOCS_BY_VERSION`). The portal shows the active cluster's release.
+
+```bash
+./build_all.sh Hammerspace-5.3-Command-Line-Reference.pdf clihelp-5.2.txt clihelp-5.3.txt
+```
+
+- For 5.2, the build uses the 5.2 CLI help and keeps only the commands and options that release has. Descriptions from the reference guide are still used where they match.
+- For 5.3, it uses the 5.3 CLI help plus the 5.3 reference guide.
+- To add a release, add its help file and a `RELEASE=x.y python3 build.py` step to `build_all.sh`.

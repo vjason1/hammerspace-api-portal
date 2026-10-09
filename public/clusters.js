@@ -14,6 +14,7 @@ function renderSwitcher() {
   $('#swDot').className = 'dot ' + (!ACTIVE ? 'dot-none' : !st ? 'dot-unknown' : st.ok ? (/UP|HA/.test(st.state || 'UP') ? 'dot-ok' : 'dot-warn') : 'dot-bad');
   $('#swDot').title = !st ? 'Status not checked yet' : st.ok ? `State ${st.state || 'unknown'}` : st.error;
   document.querySelectorAll('[data-nav]').forEach(a => a.classList.toggle('current', location.hash === `#${a.dataset.nav}`));
+  if (refreshProfile(true)) return;   // release changed: everything was re-rendered
   const pr = $('.ph-right'); if (pr) pr.innerHTML = clusterStatusHtml();
   if (ACTIVE && !STATUS.has(ACTIVE)) probeCluster(ACTIVE);
 }
@@ -86,7 +87,7 @@ function drawClusterTable() {
         <td><b>${esc(c.name)}</b>${c.id === ACTIVE ? ' <span class="chip">active</span>' : ''}<div class="pv-dim">${esc(c.clusterName && c.clusterName !== c.name ? c.clusterName : '')}${c.clusterUuid ? ` <code class="uuid" title="${esc(c.clusterUuid)}">${esc(c.clusterUuid.slice(0, 8))}…</code>` : ''}</div></td>
         <td><code>${esc(c.url)}</code><div class="pv-dim">as ${esc(c.username)}${c.insecureTls ? '' : ' · verified TLS'}</div></td>
         <td>${status}</td>
-        <td>${esc(s?.version || c.version || '—')}</td>
+        <td>${esc(s?.version || c.version || '—')}<div class="pv-dim">API ${esc(VERSIONS.forCluster(c).id)}${c.apiProfile ? ' (manual)' : ''}</div></td>
         <td>${s?.nodes ?? '—'}</td>
         <td>${cap(s)}</td>
         <td>${(c.tags || []).map(t => `<span class="chip">${esc(t)}</span>`).join(' ') || '<span class="pv-dim">—</span>'}</td>
@@ -128,6 +129,10 @@ function clusterEditor(c) {
     <div class="f-row"><div class="f-label">Certificates</div><div class="f-control">
       <label class="f-check"><input type="checkbox" id="cl_insecure" ${!edit || c.insecureTls ? 'checked' : ''}> Accept the cluster’s self-signed certificate</label>
       <p class="f-desc">Hammerspace clusters usually ship with a self-signed certificate. Untick if yours has a CA-signed one.</p></div></div>
+    <div class="f-row"><label class="f-label" for="cl_profile">API release</label><div class="f-control">
+      <select id="cl_profile"><option value="">Automatic — from the cluster’s software version${edit && c.version ? ` (${esc(c.version)} → ${esc(VERSIONS.forVersion(c.version).id)})` : ''}</option>
+        ${VERSIONS.ORDER.slice().reverse().map(v => `<option value="${v}" ${edit && c.apiProfile === v ? 'selected' : ''}>${esc(VERSIONS.PROFILES[v].label)}</option>`).join('')}</select>
+      <p class="f-desc">Decides which APIs, settings, GUI tab names and CLI help the portal uses for this cluster. Leave on Automatic unless the version can’t be read.</p></div></div>
     <div class="row" style="padding:12px 0">
       <button class="btn primary" type="submit">${edit ? 'Save changes' : 'Test & add cluster'}</button>
       ${edit ? '' : '<button class="btn" type="button" id="clSkip">Add without testing</button>'}
@@ -139,7 +144,7 @@ function clusterEditor(c) {
   const form = $('#clForm');
   const val = () => ({
     name: $('#cl_name').value.trim(), url: $('#cl_url').value.trim(), username: $('#cl_username').value.trim(), password: $('#cl_password').value,
-    tags: $('#cl_tags').value.split(',').map(s => s.trim()).filter(Boolean), notes: $('#cl_notes').value, insecureTls: $('#cl_insecure').checked,
+    tags: $('#cl_tags').value.split(',').map(s => s.trim()).filter(Boolean), notes: $('#cl_notes').value, insecureTls: $('#cl_insecure').checked, apiProfile: $('#cl_profile').value,
   });
   const save = async skipTest => {
     $('#clErr').textContent = ''; $('#clMsg').textContent = edit ? 'Saving…' : skipTest ? 'Saving…' : 'Signing in to the cluster…';

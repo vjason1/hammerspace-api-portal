@@ -56,8 +56,8 @@ function renderList() {
   const gui = shown.filter(o => o.nav.section !== 'hidden').length;
   $('#counts').innerHTML = `${shown.length} of ${OPS.length} operations · <b>${gui}</b> in GUI sections · <b>${shown.length - gui}</b> CLI only / hidden`;
 
-  const opLink = o => `<a class="op ${where.op === o.id ? 'active' : ''} ${o.nav.notInGui && o.nav.section !== 'hidden' ? 'op-ng' : ''}" href="${opHref(o)}" title="${esc(o.method.toUpperCase() + ' ' + o.path)}${o.nav.notInGui && o.nav.section !== 'hidden' ? ' · not shown in the Hammerspace GUI' : ''}">
-      <span class="m m-${o.method}">${o.method}</span><span class="s">${isApiOnly(o) ? '<span class="caution-mark" title="Use with caution">⚠</span> ' : ''}${esc(opName(o))}</span><span class="p">${esc(o.path)}</span></a>`;
+  const opLink = o => `<a class="op ${where.op === o.id ? 'active' : ''} ${opOK(o) ? '' : 'op-na'} ${o.nav.notInGui && o.nav.section !== 'hidden' ? 'op-ng' : ''}" href="${opHref(o)}" title="${esc(o.method.toUpperCase() + ' ' + o.path)}${o.nav.notInGui && o.nav.section !== 'hidden' ? ' · not shown in the Hammerspace GUI' : ''}">
+      <span class="m m-${o.method}">${o.method}</span><span class="s">${opOK(o) ? '' : `<span class="ver-chip" title="Not in ${esc(PROFILE.label)}">${esc(VERSIONS.since(o.method, o.path))}+</span> `}${isApiOnly(o) ? '<span class="caution-mark" title="Use with caution">⚠</span> ' : ''}${esc(opName(o))}</span><span class="p">${esc(o.path)}</span></a>`;
   const group = (key, href, title, ops, cls) => {
     if (!ops.length) return '';
     const open = searching || TREE_OPEN.has(key) || (where.op && ops.some(o => o.id === where.op));
@@ -93,7 +93,8 @@ function clusterStatusHtml() {
   const c = activeCluster(); if (!c) return '<span class="ph-st">No cluster selected — <a href="#clusters">add one</a></span>';
   const s = STATUS.get(ACTIVE);
   const state = !s ? '<span class="pv-dim">checking…</span>' : s.ok ? `${okIcon(/UP|HA|STANDALONE/.test(s.state || 'UP') ? 'good' : 'warn')} ${esc(stateText(s.state))}` : `${okIcon('bad')} Unreachable`;
-  return `<span class="ph-st">Cluster Name: <b>${esc(s?.clusterName || clusterLabel(c))}</b></span><span class="ph-st">Status: ${state}</span>`;
+  const ver = s?.version || c.version;
+  return `<span class="ph-st">Cluster Name: <b>${esc(s?.clusterName || clusterLabel(c))}</b></span>${ver ? `<span class="ph-st" title="API profile: ${esc(PROFILE.label)}${c.apiProfile ? ' (set manually)' : ''}">Version: <b>${esc(ver)}</b></span>` : ''}<span class="ph-st">Status: ${state}</span>`;
 }
 const stateText = s => ({ HA: 'High Availability', STANDALONE: 'Standalone', DEGRADED: 'Degraded', UP: 'Up' }[s] || s || 'Up');
 const okIcon = kind => `<span class="st-ico st-${kind}" aria-hidden="true">${kind === 'good' ? '✓' : kind === 'warn' ? '!' : '×'}</span>`;
@@ -119,19 +120,19 @@ function portalHead(id) { $('#main').insertAdjacentHTML('afterbegin', pageHead('
 
 function locationBadge(o) {
   if (o.nav.section === 'hidden') {
-    const cli = CLI.forOp(o.id);
+    const cli = CLI.anyFor(o.id);
     return `<a class="loc loc-hidden" href="#tab=hidden/${encodeURIComponent(o.tag)}" title="Not exposed in the Hammerspace GUI">${NAV.icon('terminal', 13)} ${cli.length ? `CLI only · ${esc(cli[0])}` : 'Not in GUI or CLI — API only'}</a>`;
   }
   const s = NAV.section(o.nav.section), t = NAV.tab(o.nav.section, o.nav.tab);
   if (o.nav.notInGui) {
-    const cli = CLI.forOp(o.id);
+    const cli = CLI.anyFor(o.id);
     return `<a class="loc loc-hidden" href="#tab=${s.id}/${t.id}" title="Grouped under ${esc(s.title)} › ${esc(t.title)}, but not shown in the Hammerspace GUI">${NAV.icon(s.icon, 13)} ${esc(s.title)} › ${esc(t.title)} · not in GUI${cli.length ? ` · CLI ${esc(cli[0])}` : ' · API only'}</a>`;
   }
   return `<a class="loc" href="#tab=${s.id}/${t.id}" title="Where this lives in the Hammerspace GUI">${NAV.icon(s.icon, 13)} In GUI: ${esc(s.title)} › ${esc(t.title)}</a>`;
 }
 
 // API-only operations: in the unfiled/hidden section and not in the Command Line Reference
-const isApiOnly = o => o.nav.section === 'hidden' && !CLI.forOp(o.id).length;
+const isApiOnly = o => o.nav.section === 'hidden' && !CLI.anyFor(o.id).length;
 const CAUTION_TEXT = 'Use with caution. This API is not exposed in the Hammerspace GUI and is not documented in the Command Line Reference. It may impact cluster operation and stability. Test on a non-production cluster first, and check with Hammerspace support if you are unsure.';
 const cautionNote = (extra = '') => `<div class="caution" role="note"><b>⚠ Caution:</b> ${esc(CAUTION_TEXT)}${extra}</div>`;
 const cautionChip = () => '<span class="caution-chip" title="Not in the GUI or the CLI guide — may impact cluster operation and stability">⚠ use with caution</span>';
@@ -150,7 +151,7 @@ function opTable(ops, caption) {
   return `<div class="panel"><div class="panel-h">${esc(caption)}<span class="sp"></span><span class="panel-n">${ops.length}</span></div>
     <table class="gt"><thead><tr><th style="width:84px">Method</th><th>Action</th><th>Endpoint</th></tr></thead><tbody>${ops.map(o => `
       <tr><td><span class="mb mb-${o.method}">${o.method.toUpperCase()}</span></td>
-        <td><a href="${opHref(o)}">${esc(opName(o))}</a> ${isApiOnly(o) ? cautionChip() + ' ' : ''}${o.nav.notInGui && o.nav.section !== 'hidden' ? '<span class="ng-chip" title="Not shown in the Hammerspace GUI">not in GUI</span> ' : ''}${CLI.chips(o.id)}${o.op.description && o.op.description !== o.op.summary ? `<div class="gt-sub">${esc(o.op.description.slice(0, 160))}</div>` : ''}</td>
+        <td><a href="${opHref(o)}">${esc(opName(o))}</a> ${opOK(o) ? '' : `<span class="ver-chip" title="Not available on ${esc(PROFILE.label)}">requires ${esc(VERSIONS.since(o.method, o.path))}+</span> `}${isApiOnly(o) ? cautionChip() + ' ' : ''}${o.nav.notInGui && o.nav.section !== 'hidden' ? '<span class="ng-chip" title="Not shown in the Hammerspace GUI">not in GUI</span> ' : ''}${CLI.chips(o.id)}${o.op.description && o.op.description !== o.op.summary ? `<div class="gt-sub">${esc(o.op.description.slice(0, 160))}</div>` : ''}</td>
         <td><code>${esc(o.path)}</code></td></tr>`).join('')}</tbody></table></div>`;
 }
 
@@ -163,7 +164,7 @@ function renderTabPage(sid, tid) {
   const also = (t.also || []).map(opById).filter(Boolean);
   // live data: the tab's main list endpoints, in the order of the tab's rules (e.g. /shares before /share-participants)
   const rank = o => { const i = (t.rules || []).findIndex(([m, re]) => re.test(o.path)); return i < 0 ? 99 : i; };
-  const lists = ops.filter(o => isListGet(o) && o.path !== '/files').sort((a, b) => rank(a) - rank(b) || a.path.length - b.path.length).slice(0, 3);
+  const lists = ops.filter(o => isListGet(o) && opOK(o) && o.path !== '/files').sort((a, b) => rank(a) - rank(b) || a.path.length - b.path.length).slice(0, 3);
   $('#main').innerHTML = `${pageHead(sid, tid)}
     ${t.note ? `<div class="note">${esc(t.note)}</div>` : ''}
     ${!ACTIVE ? '<div class="note">Add a cluster on the <a href="#clusters">Clusters</a> page to see live data here.</div>' : ''}
@@ -221,7 +222,7 @@ document.addEventListener('click', e => {
 function renderHidden(tag) {
   CURRENT = null; renderList(); renderRail();
   const hid = OPS.filter(o => o.nav.section === 'hidden');
-  const intro = `<div class="note">These API operations are not exposed anywhere in the Hammerspace management GUI (based on the 5.2 GUI). Operations with a matching command in the Hammerspace ${esc(CLI.version)} Command Line Reference are marked with that command (<b>CLI only</b>); the rest have no GUI page or CLI command and are reachable <b>only through the API</b> (internal helpers such as lookups, related-lists and login, and some newer features). API-only operations are marked <span class="caution-chip">⚠ use with caution</span>: they may impact cluster operation and stability.</div>`;
+  const intro = `<div class="note">These API operations are not exposed anywhere in the Hammerspace management GUI (5.2 and 5.3 GUIs). Operations with a matching CLI command are marked with that command (<b>CLI only</b>); the rest have no GUI page or CLI command and are reachable <b>only through the API</b> (internal helpers such as lookups, related-lists and login, and some newer features). API-only operations are marked <span class="caution-chip">⚠ use with caution</span>: they may impact cluster operation and stability.</div>`;
   if (tag) {
     const tops = opsIn('hidden', tag), risky = tops.filter(isApiOnly).length;
     $('#main').innerHTML = `${pageHead('hidden', tag)}${risky ? cautionNote(risky < tops.length ? ` <br>Applies to the ${risky} operation${risky === 1 ? '' : 's'} marked <i>use with caution</i> below; the others have CLI commands.` : '') : ''}${opTable(tops, `${Pretty.label(tag)} — CLI only / hidden`)}`;
@@ -234,7 +235,7 @@ function renderHidden(tag) {
       const ops = hid.filter(o => o.tag === t);
       const ms = [...new Set(ops.map(o => o.method))].sort((a, b) => ORDER[a] - ORDER[b]);
       return `<tr><td><a href="#tab=hidden/${encodeURIComponent(t)}">${esc(Pretty.label(t))}</a> <code class="gt-tag">${esc(t)}</code></td><td>${ops.length}</td><td>${ms.map(m => `<span class="mb mb-${m}">${m.toUpperCase()}</span>`).join(' ')}</td>
-        <td>${[...new Set(ops.flatMap(o => CLI.forOp(o.id)))].map(c => `<code class="cli-chip">${esc(c)}</code>`).join(' ') || '<span class="pv-dim">API only</span>'}${ops.some(isApiOnly) ? ` ${cautionChip()}` : ''}</td></tr>`;
+        <td>${[...new Set(ops.flatMap(o => CLI.anyFor(o.id)))].map(c => `<code class="cli-chip">${esc(c)}</code>`).join(' ') || '<span class="pv-dim">API only</span>'}${ops.some(isApiOnly) ? ` ${cautionChip()}` : ''}</td></tr>`;
     }).join('')}</tbody></table></div>`;
 }
 

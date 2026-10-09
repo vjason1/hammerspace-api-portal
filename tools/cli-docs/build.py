@@ -5,7 +5,10 @@ sys.path.insert(0,HERE)
 from map import M, EXTRA_COMMANDS
 cli=json.load(open(os.path.join(HERE,'cli.json')))
 # Merge the CLI's own built-in help (cli_help.json from parse_help.py), which is current for the cluster it came from.
-HELP_PATH=os.path.join(HERE,'cli_help.json')
+# One build per release: RELEASE=5.2 uses cli_help_5.2.json and only keeps commands/options that release's CLI has.
+RELEASE=os.environ.get('RELEASE','5.3'); RESTRICT=os.environ.get('RESTRICT')=='1'
+HELP_PATH=os.path.join(HERE,f'cli_help_{RELEASE}.json')
+if not os.path.exists(HELP_PATH): HELP_PATH=os.path.join(HERE,'cli_help.json')
 help_=json.load(open(HELP_PATH)) if os.path.exists(HELP_PATH) else {}
 nrm=lambda t: re.sub(r'[^a-z0-9]+',' ',(t or '').lower()).strip()
 def best(a,b):
@@ -38,6 +41,11 @@ for k in set(cli)|set(help_):
     for o in h_.get('required',[]):
         d=cli[k]['options'].get(o,'')
         if o in cli[k]['options'] and 'Required' not in d: cli[k]['options'][o]=(d+' (Required)').strip()
+if RESTRICT and help_:
+    for k in list(cli):
+        if k not in help_: del cli[k]; continue
+        cli[k]['options']={o:d for o,d in cli[k]['options'].items() if o in help_[k]['options']}
+    EXTRA_COMMANDS={k:v for k,v in EXTRA_COMMANDS.items() if k in help_}
 # commands with no help and no guide entry (added by hand in map.py)
 for _k,_v in EXTRA_COMMANDS.items():
     if _k not in cli:
@@ -148,6 +156,7 @@ ops={}      # opid -> [cmd]
 stats={'opts':0,'mapped':0}; unmapped={}; mapped_any=set()
 SKIP={'async','no-timeout','full','view','help','force-master-acquisition'}
 for cmd,ol in M.items():
+    if cmd not in cli: continue
     info=cli[cmd]
     for o in ol:
         oid=opid(o); ops.setdefault(oid,[]).append(cmd)
@@ -202,6 +211,6 @@ for k,v in cli.items():
     mm=re.search(r'\bExamples?\b:?\s+('+re.escape(k)+r'\b.*)$', summ)
     if mm: ex=mm.group(1); summ=summ[:mm.start()].strip()
     cmds[k]={'chapter':v['chapter'],'summary':summ,'example':ex,'source':src.get(k,'guide'),'options':{o:d for o,d in v['options'].items() if o!='help'}}
-out={'version':'5.3','sources':{'guide':'Hammerspace 5.3 Command Line Reference','help':'the CLI’s built-in help','both':'the CLI’s built-in help and the 5.3 Command Line Reference','manual':'confirmed by users'},'commands':cmds,'ops':ops,'fields':fields,'params':params}
-open(os.path.join(ROOT,'public','cli-docs.js'),'w').write(
- "/* Generated from the Hammerspace 5.3 Command Line Reference (2026-10-07): CLI commands, their options, and how they map to API operations and fields.\n * Regenerate with tools/cli-docs (see its README). */\n'use strict';\nconst CLI_DOCS = "+json.dumps(out,ensure_ascii=False,separators=(',',':'))+";\n")
+guide='the CLI’s built-in help (5.2)' if RESTRICT else 'Hammerspace 5.3 Command Line Reference'
+out={'version':RELEASE,'sources':{'guide':'Hammerspace 5.3 Command Line Reference','help':f'the {RELEASE} CLI’s built-in help','both':f'the {RELEASE} CLI’s built-in help'+('' if RESTRICT else ' and the 5.3 Command Line Reference'),'manual':'confirmed by users'},'commands':cmds,'ops':ops,'fields':fields,'params':params}
+json.dump(out,open(os.path.join(HERE,f'cli_docs_{RELEASE}.json'),'w'),ensure_ascii=False,separators=(',',':'))

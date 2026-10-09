@@ -260,7 +260,7 @@ async function authed(req, res, url, p, session) {
   if (p === '/portal/clusters' && req.method === 'POST') {
     const b = await readJsonBody(req, 64 * 1024);
     const rec = { name: (b.name || '').trim(), url: validateTarget(b.url), username: (b.username || '').trim(), password: b.password || '',
-      insecureTls: b.insecureTls !== false, tags: (b.tags || []).map(String).map(s => s.trim()).filter(Boolean), notes: b.notes || '' };
+      insecureTls: b.insecureTls !== false, tags: (b.tags || []).map(String).map(s => s.trim()).filter(Boolean), notes: b.notes || '', apiProfile: /^\d+\.\d+$/.test(b.apiProfile || '') ? b.apiProfile : '' };
     if (!rec.username) throw Object.assign(new Error('Cluster user name is required'), { status: 400 });
     if (Store.clusters.list().some(c => c.url === rec.url && c.username === rec.username)) throw Object.assign(new Error('That cluster is already registered'), { status: 409 });
     let info = null;
@@ -292,7 +292,7 @@ async function authed(req, res, url, p, session) {
     }
     if (req.method === 'PUT') {
       const b = await readJsonBody(req, 64 * 1024);
-      const patch = { name: b.name, username: b.username, password: b.password || undefined, insecureTls: b.insecureTls, tags: b.tags, notes: b.notes };
+      const patch = { name: b.name, username: b.username, password: b.password || undefined, insecureTls: b.insecureTls, tags: b.tags, notes: b.notes, apiProfile: b.apiProfile === undefined ? undefined : (/^\d+\.\d+$/.test(b.apiProfile || '') ? b.apiProfile : '') };
       if (b.url) patch.url = validateTarget(b.url);
       const updated = Store.clusters.update(id, patch);
       conns.delete(id); // force re-login with new settings

@@ -90,7 +90,8 @@ const OBJ = (() => {
   // Preload the whole directory (4 requests at a time)
   function warm(cid = ACTIVE, force) {
     if (!cid) return Promise.resolve([]);
-    const srcs = available().filter(s => s.warm);
+    const prof = VERSIONS.forCluster(CLUSTERS.find(c => c.id === cid));
+    const srcs = available().filter(s => s.warm && VERSIONS.opAvailable(prof, 'get', s.endpoint));
     let i = 0;
     return Promise.all(Array.from({ length: 4 }, async () => { while (i < srcs.length) await list(srcs[i++].endpoint, cid, force); }))
       .then(() => items(cid));

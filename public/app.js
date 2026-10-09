@@ -32,8 +32,30 @@ async function loadClusters() {
   if (!CLUSTERS.some(c => c.id === ACTIVE)) setActive(CLUSTERS[0]?.id || null, true);
   renderSwitcher();
 }
+// ---------------------------------------------------------------- software-release profile of the active cluster
+let PROFILE = VERSIONS.PROFILES[VERSIONS.LATEST];
+const opOK = (o, p = PROFILE) => VERSIONS.opAvailable(p, o.method, o.path);
+const clusterVersion = (id = ACTIVE) => (typeof STATUS !== 'undefined' && STATUS.get(id)?.version) || CLUSTERS.find(c => c.id === id)?.version || '';
+const profileOf = id => VERSIONS.forCluster(CLUSTERS.find(c => c.id === id));
+// Re-evaluate when the active cluster (or its detected version) changes; re-render if the release changed
+function refreshProfile(rerender) {
+  const p = VERSIONS.forCluster(activeCluster());
+  if (p === PROFILE) return false;
+  PROFILE = p; NAV.applyProfile(p); CLI.setVersion(p.id);
+  if (rerender && $('#app') && !$('#app').hidden) {
+    renderList(); renderRail();
+    if (CURRENT) renderOp(CURRENT); else if (/^#?(sec=|tab=|$)/.test(location.hash)) routeFromHash();
+  }
+  return true;
+}
+function requiresHtml(o) {
+  const since = VERSIONS.since(o.method, o.path), c = activeCluster();
+  return `<div class="caution ver-na" role="note"><b>Requires Hammerspace ${esc(since)} or later.</b> ${esc(clusterLabel(c))} runs ${esc(clusterVersion() || PROFILE.label)}, which doesn’t have this API — the cluster will most likely answer HTTP 404. You can still send it (for example after an upgrade).</div>`;
+}
+
 function setActive(id, quiet) {
   ACTIVE = id; store.set('hs.active', id);
+  refreshProfile(false);
   Forms.init(SPEC, async ep => { if (!ACTIVE) return []; const r = await fetch(HS(ep), { headers: { Accept: 'application/json' } }); if (!r.ok) return []; const j = await r.json(); return Array.isArray(j) ? j : []; });
   renderSwitcher();
   if (ACTIVE && CONFIG?.user) setTimeout(() => OBJ.warm(ACTIVE), 400);   // preload object names/UUIDs
@@ -313,8 +335,10 @@ function paramRow(o, p) {
     input = `<input id="${id}" type="${typ}" data-p="${esc(p.name)}" data-in="${p.in}" placeholder="${esc(ph)}" ${p.fixDefault != null ? `value="${esc(p.fixDefault)}"` : ''} ${pick ? `data-pick="${esc(JSON.stringify(pick))}"` : ''} autocomplete="off" ${p.required ? 'required' : ''}>`;
   }
   const desc = [p.description || META.PARAM_DOCS[p.name] || '', enumVals && p.type === 'array' ? `Allowed: ${enumVals.join(', ')}` : ''].filter(Boolean).join('\n');
+  if (!VERSIONS.paramAvailable(PROFILE, o.id, p.name)) input = input.replace(/^<(input|select)/, '<$1 disabled data-na="1"');
+  const naNote = !VERSIONS.paramAvailable(PROFILE, o.id, p.name) ? `<p class="f-na-note">Not available on ${esc(PROFILE.label)} — added in 5.3.</p>` : '';
   return `<div class="f-row"><label class="f-label" for="${id}">${esc(Pretty.label(p.name))}${p.required ? '<span class="req"> *</span>' : ''}<span class="f-key">${esc(p.name)} · ${t}</span></label>
-    <div class="f-control">${input}${desc ? `<p class="f-desc">${esc(desc)}</p>` : ''}${CLI.paramHtml(o.id, p.name, desc)}</div></div>`;
+    <div class="f-control">${input}${naNote}${desc ? `<p class="f-desc">${esc(desc)}</p>` : ''}${CLI.paramHtml(o.id, p.name, desc)}</div></div>`;
 }
 
 function renderOp(o) {
@@ -369,6 +393,7 @@ function renderOp(o) {
       ${op.description && op.description !== op.summary ? `<div class="sum">${esc(op.description)}</div>` : ''}
       <div class="meta">${esc(path)} · ${esc(o.tag)}${op.operationId ? ' · ' + esc(op.operationId) : ''}</div>
       ${danger ? `<div class="warn">⚠ This operation can change or remove cluster state. You’ll be asked to confirm before it is sent.</div>` : ''}
+      ${!opOK(o) ? requiresHtml(o) : ''}
       ${isApiOnly(o) ? cautionNote() : ''}
     </div>
     ${CLI.opCard(o.id)}
@@ -399,7 +424,7 @@ function renderOp(o) {
 
   form.addEventListener('input', updatePreview);
   form.addEventListener('change', updatePreview);
-  form.addEventListener('submit', e => { e.preventDefault(); send(o, { consumes, isUpload, bodyP, isJsonBody, isRawText, danger, produces, verb, canLoad }); });
+  form.addEventListener('submit', e => { e.preventDefault(); send(o, { consumes, isUpload, bodyP, isJsonBody, isRawText, danger, produces, verb, canLoad, bodyName }); });
   // which clusters to run on
   TP = null;
   if ($('#btnTargets')) {
@@ -591,6 +616,7 @@ async function send(o, ctx) {
     let v;
     try { v = bodyValue(); } catch (e) { $('#bodyErr').textContent = `Invalid JSON: ${e.message}`; return; }
     headers['Content-Type'] = 'application/json';
+    v = VERSIONS.stripBody(PROFILE, ctx.bodyName, v);
     body = bodyText = JSON.stringify(v === undefined ? (ctx.bodyP.schema?.type === 'array' ? [] : {}) : v);
   } else if (o.method !== 'get') {
     headers['Content-Type'] = 'application/json';
@@ -599,6 +625,7 @@ async function send(o, ctx) {
   const tgts = targets();
   if (!tgts.length) { showResp({ error: 'Choose at least one cluster to run this on.' }); return; }
   if (tgts.length > 1 || tgts[0] !== ACTIVE) return sendMulti(o, ctx, c, tgts, { headers, body });
+  if (!opOK(o) && !confirm(`This API requires Hammerspace ${VERSIONS.since(o.method, o.path)} or later, and ${clusterLabel(activeCluster())} runs ${clusterVersion() || PROFILE.label}.\n\nSend it anyway?`)) return;
   if (ctx.danger && !confirm(`${ctx.verb}: ${o.op.summary || o.path}\n${o.method.toUpperCase()} ${c.path}${c.query}\non ${clusterLabel(activeCluster())} (${activeCluster()?.url})\n\nThis may modify or remove cluster state. Continue?`)) return;
 
   store.set(`hs.form.${o.id}`, { p: Object.fromEntries(Object.entries(c.vals).filter(([k]) => !/password/i.test(k))), json: bodyText && !/password|secret/i.test(bodyText) ? bodyText : undefined });
@@ -654,6 +681,8 @@ async function sendMulti(o, ctx, c, ids, single) {
     set('<span class="pill neutral">RUNNING</span>');
     const t0 = performance.now();
     try {
+      const tp = profileOf(id);
+      if (!VERSIONS.opAvailable(tp, o.method, o.path)) throw new Error(`Not available on this cluster: requires Hammerspace ${VERSIONS.since(o.method, o.path)} or later (cluster runs ${clusterVersion(id) || tp.label}).`);
       // object IDs picked on the active cluster -> the same-named object on this cluster
       let cc = c; const mapped = [];
       if (id !== ACTIVE) {
@@ -675,6 +704,7 @@ async function sendMulti(o, ctx, c, ids, single) {
           if (!cur.ok) throw new Error(cur.status === 404 ? 'Not found on this cluster (no object with that name/ID).' : `Couldn’t read current settings (HTTP ${cur.status}).`);
           obj = Forms.merge(await cur.json(), delta);
         } else obj = createBody;
+        obj = VERSIONS.stripBody(tp, ctx.bodyName, obj);
         body = JSON.stringify(obj === undefined ? (ctx.bodyP.schema?.type === 'array' ? [] : {}) : obj);
       }
       const r = await fetch(HS(`${cc.path}${cc.query}`, id), { method, headers: { ...single.headers, 'X-Batch': batch }, body });
@@ -833,7 +863,8 @@ async function runExtract() {
     $('#exStatus').textContent = `Cluster ${n + 1} of ${ids.length}: ${clusterLabel(cl)}…`;
     const t0 = performance.now();
     try {
-      const results = await Extract.run(SPEC, opts, ev => {
+      const prof = profileOf(id);
+      const results = await Extract.run(SPEC, { ...opts, unavailable: p => !VERSIONS.opAvailable(prof, 'get', p) }, ev => {
         const key = ev.section.path || ev.section.perShare;
         let li = rows.get(key);
         if (!li) { li = document.createElement('li'); rows.set(key, li); log.appendChild(li); }

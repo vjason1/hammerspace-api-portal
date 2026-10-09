@@ -103,6 +103,23 @@ The bundled `public/swagger.json` is the v1.2 sys-mgmt spec. To match your clust
 docker run ... -v /path/to/swagger.json:/app/public/swagger.json:ro hs-api-portal
 ```
 
+## Hammerspace releases (5.2 and 5.3)
+
+One portal manages clusters on different releases at the same time. Releases are described as **profiles** in [`public/versions.js`](public/versions.js).
+
+- **One API definition.** The bundled `swagger.json` is the 5.3 sys-mgmt API. It is byte-for-byte the same file as the 5.3 release's `swagger.json`, and it is a superset of 5.2. A profile lists what an older release *doesn't* have: whole operations, body fields and query parameters.
+- **Automatic per cluster.** Each cluster's profile comes from its software version (e.g. `5.2.14-1267` → 5.2), which is read when the portal checks the cluster. A newer, unknown release uses the newest profile; an older one uses the oldest. You can override it per cluster under **Clusters → Edit → API release**.
+- **What changes with the active cluster's release:**
+  - **APIs:** operations the release doesn't have are greyed out and marked **5.3+**. Their page explains this and asks before sending.
+  - **Forms:** settings the release doesn't have are disabled and never sent, e.g. `nfsTransportPolicy` on 5.2.
+  - **GUI tabs:** they use that release's names. On 5.2 they are *Active Directory* and *Certificates*; on 5.3 they are *Directory Services* (Active Directory plus LDAP name services) and *TLS* (root CA, web server, trusted and signed certificates, NFS TLS).
+  - **CLI help:** the release's own CLI help is shown, e.g. `mdsi-*`, `cert-*` and `name-service-config` exist only in 5.3.
+  - **Tab pages and the object directory** don't call APIs the release lacks.
+  - **Extraction:** skips them and lists them in the report appendix as "not available on this cluster's software version".
+- **Multi-cluster pushes:** each target is checked against its own release. A 5.2 cluster in a push of a 5.3-only operation fails on its own with a clear message, and settings a target's release lacks are removed from its request.
+- **How the 5.2 profile was built:** from endpoints a 5.2.14 cluster answered with HTTP 404, the 5.2 vs 5.3 CLI help, and the 5.2 vs 5.3 GUI. For an exact profile, export `swagger.json` from a 5.2 cluster and run `python3 tools/versions/diff_specs.py swagger-5.2.json public/swagger.json`. It prints the `missingOps`, `missingFields` and `missingParams` lists to paste into `versions.js`.
+- **Adding a release:** add a profile to `versions.js`. If the new release's API is a superset, replace `public/swagger.json` with it and describe the older releases relative to it. Then rebuild the CLI help with `tools/cli-docs/build_all.sh`.
+
 ## Using the portal
 
 ### Layout

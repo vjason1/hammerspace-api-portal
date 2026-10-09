@@ -83,7 +83,7 @@ const users = {
 };
 
 // ---------- cluster registry
-const PUBLIC_FIELDS = ['id', 'name', 'url', 'username', 'insecureTls', 'tags', 'notes', 'clusterName', 'clusterUuid', 'version', 'lastSeen', 'lastError', 'created'];
+const PUBLIC_FIELDS = ['id', 'name', 'url', 'username', 'insecureTls', 'tags', 'notes', 'clusterName', 'clusterUuid', 'version', 'apiProfile', 'lastSeen', 'lastError', 'created'];
 const pub = c => Object.fromEntries(PUBLIC_FIELDS.map(k => [k, c[k]]).filter(([, v]) => v !== undefined));
 const clusters = {
   list: () => readJson(F.clusters, []).map(pub),
@@ -92,13 +92,13 @@ const clusters = {
   add(c) {
     const all = readJson(F.clusters, []);
     const rec = { id: crypto.randomBytes(5).toString('hex'), name: c.name, url: c.url, username: c.username, password: encrypt(c.password),
-      insecureTls: c.insecureTls !== false, tags: c.tags || [], notes: c.notes || '', created: Date.now() };
+      insecureTls: c.insecureTls !== false, tags: c.tags || [], notes: c.notes || '', apiProfile: c.apiProfile || '', created: Date.now() };
     all.push(rec); writeJson(F.clusters, all); return pub(rec);
   },
   update(id, patch) {
     const all = readJson(F.clusters, []); const c = all.find(x => x.id === id);
     if (!c) throw new Error('No such cluster');
-    for (const k of ['name', 'url', 'username', 'insecureTls', 'tags', 'notes', 'clusterName', 'clusterUuid', 'version', 'lastSeen', 'lastError']) if (patch[k] !== undefined) c[k] = patch[k];
+    for (const k of ['name', 'url', 'username', 'insecureTls', 'tags', 'notes', 'apiProfile', 'clusterName', 'clusterUuid', 'version', 'lastSeen', 'lastError']) if (patch[k] !== undefined) c[k] = patch[k];
     if (patch.password) c.password = encrypt(patch.password);
     writeJson(F.clusters, all); return pub(c);
   },
